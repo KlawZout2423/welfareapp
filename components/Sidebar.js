@@ -37,9 +37,11 @@ export default function Sidebar({
         />
       )}
 
-      <aside className={`sidebar transition-transform duration-300 lg:translate-x-0 ${
-        isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-      }`}>
+      <aside
+        className="sidebar"
+        data-open={isMobileMenuOpen ? "true" : undefined}
+        style={isMobileMenuOpen ? { transform: "translateX(0)" } : undefined}
+      >
       {/* Brand */}
       <div className="sidebar-brand">
         <HTULogo />
