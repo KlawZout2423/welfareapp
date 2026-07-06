@@ -59,12 +59,17 @@ body {
   width: 55%;
   background: var(--navy-deep);
   position: relative;
-  display: flex;
+  display: none; /* hidden on mobile — Tailwind lg:flex overrides this */
   flex-direction: column;
   justify-content: center;
   align-items: center;
   padding: 60px;
   overflow: hidden;
+}
+@media (min-width: 1024px) {
+  .left-panel {
+    display: flex;
+  }
 }
 .left-panel::before {
   content: '';
