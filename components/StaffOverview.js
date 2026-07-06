@@ -5,7 +5,8 @@ import {
   ShieldCheck, Mail, Building, User,
   AlertCircle, Banknote, CheckCheck
 } from "lucide-react";
-import { STAFF_QUICK_ACTIONS } from "@/lib/navConfig";
+import { STAFF_QUICK_ACTIONS, STAFF_SERVICES } from "@/lib/navConfig";
+import WelfareNoticeboard from "@/components/WelfareNoticeboard";
 
 // ── Progress Tracker ──────────────────────────────────────────────────────────
 function ProgressTracker({ steps, currentStep }) {
@@ -155,6 +156,47 @@ export default function StaffOverview({
         </div>
       </div>
 
+      {/* ── WELFARE SERVICES CARDS ──────────────────────────────────────── */}
+      <div className="welfare-cards-grid">
+        {STAFF_SERVICES.map((svc) => {
+          const Icon = svc.icon;
+          const colorMap = {
+            navy: { wrap: "bg-navy/10 text-navy", border: "border-navy/20" },
+            gold: { wrap: "bg-gold-pale text-gold", border: "border-gold/20" },
+            green: { wrap: "bg-green-pale text-green", border: "border-green/20" },
+            red: { wrap: "bg-red-pale text-red", border: "border-red/20" },
+            blue: { wrap: "bg-blue-pale text-blue", border: "border-blue/20" },
+          };
+          const colors = colorMap[svc.color] || colorMap.navy;
+
+          const handleClick = () => {
+            if (svc.modal === "payment") setShowPaymentModal(true);
+            else if (svc.modal === "claim") setShowClaimModal(true);
+            else if (svc.modal === "loan") setShowLoanModal(true);
+            else if (svc.tab) setActiveTab?.(svc.tab);
+            else if (svc.alert) alert(svc.alert);
+          };
+
+          return (
+            <div key={svc.id} className={`welfare-card ${colors.border}`} style={{ "--card-border": `var(--border)` }}>
+              <div>
+                <div className={`wc-icon-wrap ${colors.wrap}`}>
+                  <Icon className="w-5 h-5" />
+                </div>
+                <div className="wc-title">{svc.title}</div>
+                <div className="wc-desc">{svc.desc}</div>
+              </div>
+              <button
+                onClick={handleClick}
+                className={`wc-btn btn btn-sm ${svc.btnColor === "gold" ? "btn-gold" : svc.btnColor === "outline" ? "btn-outline" : "btn-primary"}`}
+              >
+                {svc.btnLabel}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
       {/* ── TWO-COLUMN: CLAIM STATUS + RECENT CONTRIBUTIONS ─────────────── */}
       <div className="two-col">
 
@@ -240,6 +282,10 @@ export default function StaffOverview({
         </div>
 
       </div>
+
+      {/* ── WELFARE NOTICEBOARD ─────────────────────────────────────────── */}
+      <WelfareNoticeboard />
+
     </div>
   );
 }

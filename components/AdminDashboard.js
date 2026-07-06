@@ -15,36 +15,47 @@ export default function AdminDashboard({
   handleBackupDatabase
 }) {
   const pendingClaims = claims.filter(c => c.status === "Pending");
+  const isAuditor = userRole === "auditor";
 
   return (
     <div className="space-y-6 animate-fade-in">
 
-      {/* ── QUICK ACTIONS ─────────────────────────────────────────────── */}
-      <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
-        {ADMIN_QUICK_ACTIONS.map((item) => {
-          const Icon = item.icon;
-          const handleClick = () => {
-            if (item.id === "backup") {
-              handleBackupDatabase();
-            } else if (item.tab) {
-              setActiveTab(item.tab);
-              if (item.modal === "member") setShowMemberModal(true);
-            } else if (item.alert) alert(item.alert);
-          };
-          return (
-            <button
-              key={item.id}
-              onClick={handleClick}
-              className="flex flex-col items-center gap-2.5 bg-white border border-slate-200/80 hover:border-slate-800 hover:shadow-sm p-4.5 rounded-2xl cursor-pointer transition-all duration-200 min-w-[130px] shrink-0 hover:-translate-y-0.5 outline-none"
-            >
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${item.color}`}>
-                <Icon className="w-5.5 h-5.5" />
-              </div>
-              <span className="text-[12px] font-bold text-slate-600">{item.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* ── AUDITOR READ-ONLY BANNER ───────────────────────────────────── */}
+      {isAuditor && (
+        <div className="flex items-center gap-3 bg-red-pale border border-red/30 text-red px-5 py-3 rounded-xl text-xs font-bold">
+          <span className="text-sm">🔒</span>
+          Audit Mode Active — Read-Only Access. No data mutations permitted.
+        </div>
+      )}
+
+      {/* ── QUICK ACTIONS (admin only) ────────────────────────────────── */}
+      {!isAuditor && (
+        <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
+          {ADMIN_QUICK_ACTIONS.map((item) => {
+            const Icon = item.icon;
+            const handleClick = () => {
+              if (item.id === "backup") {
+                handleBackupDatabase();
+              } else if (item.tab) {
+                setActiveTab(item.tab);
+                if (item.modal === "member") setShowMemberModal(true);
+              } else if (item.alert) alert(item.alert);
+            };
+            return (
+              <button
+                key={item.id}
+                onClick={handleClick}
+                className="flex flex-col items-center gap-2.5 bg-white border border-slate-200/80 hover:border-slate-800 hover:shadow-sm p-4.5 rounded-2xl cursor-pointer transition-all duration-200 min-w-[130px] shrink-0 hover:-translate-y-0.5 outline-none"
+              >
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${item.color}`}>
+                  <Icon className="w-5.5 h-5.5" />
+                </div>
+                <span className="text-[12px] font-bold text-slate-600">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* ── STATS ─────────────────────────────────────────────────────── */}
       <StatsGrid members={members} claims={claims} fundStats={fundStats} />
@@ -236,12 +247,14 @@ export default function AdminDashboard({
                     <td className="font-semibold text-text-2 text-xs">{c.type}</td>
                     <td className="font-bold text-navy-deep">GH₵{c.amount.toLocaleString()}</td>
                     <td>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={() => setActiveTab("claims")}
-                      >
-                        Review <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
+                      {!isAuditor && (
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => setActiveTab("claims")}
+                        >
+                          Review <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -98,7 +98,7 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const { action, payload } = body;
-    const timestamp = new Date().toLocaleString("en-GB", { day: "2-digit", month: "Short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const timestamp = new Date().toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
     const ip = "196.216.x.x";
 
     if (action === "registerMember") {
@@ -150,11 +150,30 @@ export async function POST(request) {
 
       const checkLedger = await query(`SELECT id FROM dues_ledger WHERE id = $1`, [memberId]);
       if (checkLedger.rows.length > 0) {
-        const column = month.includes("June") ? "jun" : "may"; 
-        await query(
-          `UPDATE dues_ledger SET ${column} = true, total = total + $1 WHERE id = $2`,
-          [parsedAmount, memberId]
-        );
+        // Map contribution month name to the ledger column
+        const monthColMap = {
+          jan: ["jan", "january"],
+          feb: ["feb", "february"],
+          mar: ["mar", "march"],
+          apr: ["apr", "april"],
+          may: ["may"],
+          jun: ["jun", "june"],
+        };
+        const monthLower = (month || "").toLowerCase();
+        let column = null;
+        for (const [col, aliases] of Object.entries(monthColMap)) {
+          if (aliases.some(a => monthLower.includes(a))) {
+            column = col;
+            break;
+          }
+        }
+        // Only update the ledger if the month maps to a tracked column
+        if (column) {
+          await query(
+            `UPDATE dues_ledger SET ${column} = true, total = total + $1 WHERE id = $2`,
+            [parsedAmount, memberId]
+          );
+        }
       }
 
       await query(
@@ -174,7 +193,7 @@ export async function POST(request) {
       const { id, applicant, index, type, amount, notes, userProfileName } = payload;
       await query(
         `INSERT INTO claims (id, applicant, index_id, type, amount, date_filed, status, notes) VALUES ($1, $2, $3, $4, $5, $6, 'Pending', $7)`,
-        [id, applicant, index, type, parseFloat(amount), new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "Short", year: "numeric" }), notes]
+        [id, applicant, index, type, parseFloat(amount), new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }), notes]
       );
 
       await query(
@@ -194,7 +213,7 @@ export async function POST(request) {
       const { id, applicant, index, amount, term, reason, monthlyInstallment } = payload;
       await query(
         `INSERT INTO loans (id, applicant, index_id, amount, date_filed, term, repaid, status, reason, monthly_installment) VALUES ($1, $2, $3, $4, $5, $6, 0, 'Pending', $7, $8)`,
-        [id, applicant, index, parseFloat(amount), new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "Short", year: "numeric" }), term, reason, parseFloat(monthlyInstallment)]
+        [id, applicant, index, parseFloat(amount), new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }), term, reason, parseFloat(monthlyInstallment)]
       );
 
       await query(
@@ -321,7 +340,7 @@ export async function POST(request) {
 
       await query(
         `INSERT INTO reports (name, period, date_str, status) VALUES ($1, $2, $3, 'Available')`,
-        [name, period, new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "Short", year: "numeric" })]
+        [name, period, new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })]
       );
 
       await query(
@@ -341,7 +360,7 @@ export async function POST(request) {
       const { type, recipients, message, userProfileName } = payload;
       await query(
         `INSERT INTO sms_history (title, recipients, date_str, status) VALUES ($1, $2, $3, 'success')`,
-        [type, `Sent to ${recipients}`, new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "Short", year: "numeric" })]
+        [type, `Sent to ${recipients}`, new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })]
       );
 
       await query(

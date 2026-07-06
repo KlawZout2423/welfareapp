@@ -8,6 +8,7 @@ export default function LoansTracker({
 }) {
   const myLoans = loans.filter(l => l.applicant === userProfile.name);
   const myActiveLoans = myLoans.filter(l => l.status === "Active");
+  const isAuditor = userRole === "auditor";
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -171,7 +172,7 @@ export default function LoansTracker({
                   <th>Repaid / Loan Total</th>
                   <th>Submitted</th>
                   <th>Status</th>
-                  {userRole === "admin" && <th>Actions</th>}
+                  {(userRole === "admin" || isAuditor) && <th>Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -190,16 +191,18 @@ export default function LoansTracker({
                           {l.status}
                         </span>
                       </td>
-                      {userRole === "admin" && (
+                      {(userRole === "admin" || isAuditor) && (
                         <td>
-                          {l.status === "Pending" ? (
+                          {userRole === "admin" && l.status === "Pending" ? (
                             <div style={{ display: "flex", gap: "6px" }}>
                               <button onClick={() => handleApproveLoan(l.id)} className="btn btn-sm btn-gold" style={{ fontSize: "11px", padding: "5px 10px" }}>Approve</button>
                               <button onClick={() => handleRejectLoan(l.id)} className="btn btn-sm"
                                 style={{ background: "var(--red-pale)", color: "var(--red)", border: "none", cursor: "pointer", borderRadius: "6px", padding: "5px 10px", fontSize: "11px", fontWeight: "600" }}>Reject</button>
                             </div>
                           ) : (
-                            <span className="text-xs text-text-3 font-semibold">Processed</span>
+                            <span className="text-xs text-text-3 font-semibold">
+                              {isAuditor ? "Read-Only" : "Processed"}
+                            </span>
                           )}
                         </td>
                       )}

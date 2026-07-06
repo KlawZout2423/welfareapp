@@ -6,6 +6,7 @@ export default function ClaimsTracker({
   userRole, userProfile, claims,
   setShowClaimModal, handleApproveClaim, handleRejectClaim
 }) {
+  const isAuditor = userRole === "auditor";
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="section-header">
@@ -122,7 +123,7 @@ export default function ClaimsTracker({
                     <th>Amount</th>
                     <th>Submitted Date</th>
                     <th>Status</th>
-                    {userRole === "admin" && <th>Action Options</th>}
+                    {(userRole === "admin" || isAuditor) && <th>Action Options</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -138,9 +139,9 @@ export default function ClaimsTracker({
                           {c.status}
                         </span>
                       </td>
-                      {userRole === "admin" && (
+                      {(userRole === "admin" || isAuditor) && (
                         <td>
-                          {c.status === "Pending" ? (
+                          {userRole === "admin" && c.status === "Pending" ? (
                             <div style={{ display: "flex", gap: "6px" }}>
                               <button onClick={() => handleApproveClaim(c.id)} className="btn btn-sm"
                                 style={{ background: "var(--green-pale)", color: "var(--green)", border: "none", cursor: "pointer", borderRadius: "6px", padding: "5px 10px", fontSize: "11px", fontWeight: "600" }}>
@@ -152,7 +153,9 @@ export default function ClaimsTracker({
                               </button>
                             </div>
                           ) : (
-                            <span className="text-xs text-text-3 font-semibold">Processed</span>
+                            <span className="text-xs text-text-3 font-semibold">
+                              {isAuditor ? "Read-Only" : "Processed"}
+                            </span>
                           )}
                         </td>
                       )}

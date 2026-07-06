@@ -322,16 +322,19 @@ export default function WelfarePortal() {
     }
   };
 
-  // Submit Claim
   const handleClaimSubmit = async (e) => {
     e.preventDefault();
-    if (!newClaim.title || !newClaim.amount) return;
+    if (!newClaim.title || !newClaim.amount) {
+      console.warn("Claim submission blocked: Missing title/description or amount.", newClaim);
+      return;
+    }
 
     const claimId = `CLM-2026-${Math.floor(42 + Math.random() * 200)}`;
     const targetMember = userRole === "staff" ? userProfile : (members.find(m => m.id === newClaim.memberId) || userProfile);
 
     try {
-      await fetch("/api/portal", {
+      console.log("Submitting claim to database...", { claimId, targetMember, newClaim });
+      const res = await fetch("/api/portal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -340,19 +343,26 @@ export default function WelfarePortal() {
             id: claimId,
             applicant: targetMember.name,
             index: targetMember.id,
-            type: newClaim.type,
+            type: newClaim.type || "Critical Illness",
             amount: newClaim.amount,
-            notes: newClaim.description || "Uploaded supportive credentials.",
+            notes: newClaim.title,
             userProfileName: userProfile.name
           }
         })
       });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed server request");
+      }
+
       setNewClaim({ memberId: "", type: "Critical Illness", title: "", amount: "", description: "" });
       setShowClaimModal(false);
       showToastMsg("Claim submitted successfully!");
       fetchPortalData();
     } catch (err) {
-      showToastMsg("Error submitting claim.", "error");
+      console.error("Claim Submission Error:", err);
+      showToastMsg("Error submitting claim: " + err.message, "error");
     }
   };
 
@@ -390,7 +400,10 @@ export default function WelfarePortal() {
     if (!newLoan.amount) return;
 
     const loanId = `LN-2026-${loans.length + 10}`;
-    const monthlyInstallment = Math.round(parseFloat(newLoan.amount) / parseInt(newLoan.term));
+    const termMonths = parseInt(newLoan.term, 10); // safely extracts leading number from "3 months"
+    const monthlyInstallment = termMonths > 0
+      ? Math.ceil(parseFloat(newLoan.amount) / termMonths)
+      : parseFloat(newLoan.amount);
 
     try {
       await fetch("/api/portal", {
@@ -635,6 +648,7 @@ export default function WelfarePortal() {
             activeTab={activeTab}
             setActiveTab={setActiveTab}
             setCurrentView={setCurrentView}
+            isMobileMenuOpen={isMobileMenuOpen}
             setIsMobileMenuOpen={setIsMobileMenuOpen}
             loans={loans}
             claims={claims}

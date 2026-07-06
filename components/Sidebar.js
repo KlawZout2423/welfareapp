@@ -1,7 +1,7 @@
 "use client";
 
 import { Settings as SettingsIcon, LogOut, ShieldCheck } from "lucide-react";
-import { STAFF_NAV, ADMIN_NAV } from "@/lib/navConfig";
+import { STAFF_NAV, ADMIN_NAV, AUDITOR_NAV } from "@/lib/navConfig";
 
 const HTULogo = ({ className = "w-11 h-12" }) => (
   <img src="/htu_logo.jpg" alt="Ho Technical University Logo"
@@ -10,7 +10,7 @@ const HTULogo = ({ className = "w-11 h-12" }) => (
 
 export default function Sidebar({
   userRole, userProfile, activeTab, setActiveTab,
-  setCurrentView, setIsMobileMenuOpen,
+  setCurrentView, setIsMobileMenuOpen, isMobileMenuOpen,
   loans, claims, members
 }) {
   const navigate = (tab) => {
@@ -24,10 +24,22 @@ export default function Sidebar({
     return item.badge(loans, claims, members, userProfile);
   };
 
-  const navItems = userRole === "staff" ? STAFF_NAV : ADMIN_NAV;
+  const navItems = userRole === "staff" ? STAFF_NAV : userRole === "auditor" ? AUDITOR_NAV : ADMIN_NAV;
 
   return (
-    <aside className="sidebar">
+    <>
+      {/* Mobile backdrop — click closes the menu */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-[99] lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside className={`sidebar transition-transform duration-300 lg:translate-x-0 ${
+        isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+      }`}>
       {/* Brand */}
       <div className="sidebar-brand">
         <HTULogo />
@@ -94,5 +106,6 @@ export default function Sidebar({
         </div>
       </div>
     </aside>
+    </>
   );
 }
