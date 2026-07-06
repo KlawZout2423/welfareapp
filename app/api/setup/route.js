@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { pbkdf2Sync, randomBytes } from "crypto";
+
+// ── Deterministic hash helper (no bcrypt — works on Vercel serverless) ────────
+function hashPassword(password) {
+  const salt = randomBytes(16).toString("hex");
+  const hash = pbkdf2Sync(password, salt, 100_000, 64, "sha512").toString("hex");
+  return `pbkdf2:${salt}:${hash}`;
+}
 
 export async function GET() {
   try {
@@ -22,7 +30,9 @@ export async function GET() {
         name VARCHAR(255) NOT NULL,
         union_name VARCHAR(50) NOT NULL,
         phone VARCHAR(50),
-        email VARCHAR(255),
+        email VARCHAR(255) UNIQUE,
+        password_hash VARCHAR(255),
+        role VARCHAR(50) DEFAULT 'staff',
         paid_months INT DEFAULT 0,
         total_months INT DEFAULT 6,
         status VARCHAR(50) DEFAULT 'New',
@@ -135,42 +145,57 @@ export async function GET() {
       );
     `);
 
-    // 3. Seed baseline datasets (All balances/ledger amounts set to zero)
-    // Seed staff/admin user logins into the members table
-    await query(`
-      INSERT INTO members (id, name, union_name, phone, email, paid_months, total_months, status, dept) VALUES
-      ('HTU/0042', 'Eugene Dushie', 'TUTAG', '0244 123 456', 'eugene.dushie@htu.edu.gh', 0, 6, 'New', 'Computer Science Department'),
-      ('HTU/ADM-001', 'Scheme Manager', 'TUSAAG', '0302 000 000', 'manager@htu.edu.gh', 0, 6, 'Active', 'Administration Secretariat'),
-      ('HTU/0031', 'Kwame Asante', 'TUSAAG', '0244 789 012', 'k.asante@htu.edu.gh', 0, 6, 'New', 'Business School'),
-      ('HTU/0112', 'James Darko', 'TEWU', '0277 456 789', 'j.darko@htu.edu.gh', 0, 6, 'New', 'Engineering'),
-      ('HTU/0087', 'Efua Forson', 'TUWAG', '0200 321 654', 'e.forson@htu.edu.gh', 0, 6, 'New', 'Art & Design'),
-      ('HTU/0249', 'Daniel Agbozo', 'TEWU', '0244 654 321', 'd.agbozo@htu.edu.gh', 0, 6, 'New', 'Engineering');
-    `);
+    // 3. Seed members with hashed passwords
+    // Default password for all staff: htu2026
+    // Admin password:  manager2026
+    // Auditor password: audit2026
+    const seeds = [
+      { id: "HTU/0042",    name: "Eugene Dushie",   union: "TUTAG",   phone: "0244 123 456", email: "eugene.dushie@htu.edu.gh", password: "htu2026",     role: "staff",   status: "New",    dept: "Computer Science Department"  },
+      { id: "HTU/ADM-001", name: "Scheme Manager",  union: "TUSAAG",  phone: "0302 000 000", email: "manager@htu.edu.gh",        password: "manager2026", role: "admin",   status: "Active", dept: "Administration Secretariat"    },
+      { id: "HTU/AUD-002", name: "System Auditor",  union: "TUSAAG",  phone: "0302 000 001", email: "auditor@htu.edu.gh",        password: "audit2026",   role: "auditor", status: "Active", dept: "Internal Audit Directorate"    },
+      { id: "HTU/0031",    name: "Kwame Asante",    union: "TUSAAG",  phone: "0244 789 012", email: "k.asante@htu.edu.gh",       password: "htu2026",     role: "staff",   status: "New",    dept: "Business School"               },
+      { id: "HTU/0112",    name: "James Darko",     union: "TEWU",    phone: "0277 456 789", email: "j.darko@htu.edu.gh",        password: "htu2026",     role: "staff",   status: "New",    dept: "Engineering"                   },
+      { id: "HTU/0087",    name: "Efua Forson",     union: "TUWAG",   phone: "0200 321 654", email: "e.forson@htu.edu.gh",       password: "htu2026",     role: "staff",   status: "New",    dept: "Art & Design"                  },
+      { id: "HTU/0249",    name: "Daniel Agbozo",   union: "TEWU",    phone: "0244 654 321", email: "d.agbozo@htu.edu.gh",       password: "htu2026",     role: "staff",   status: "New",    dept: "Engineering"                   },
+    ];
 
-    // Dues Ledger Seeding (All set to false, totals are 0)
-    await query(`
-      INSERT INTO dues_ledger (id, name, union_name, jan, feb, mar, apr, may, jun, total) VALUES
-      ('HTU/0042', 'Eugene Dushie', 'TUTAG', false, false, false, false, false, false, 0),
-      ('HTU/ADM-001', 'Scheme Manager', 'TUSAAG', false, false, false, false, false, false, 0),
-      ('HTU/0031', 'Kwame Asante', 'TUSAAG', false, false, false, false, false, false, 0),
-      ('HTU/0112', 'James Darko', 'TEWU', false, false, false, false, false, false, 0),
-      ('HTU/0087', 'Efua Forson', 'TUWAG', false, false, false, false, false, false, 0),
-      ('HTU/0249', 'Daniel Agbozo', 'TEWU', false, false, false, false, false, false, 0);
-    `);
+    for (const s of seeds) {
+      await query(
+        `INSERT INTO members (id, name, union_name, phone, email, password_hash, role, paid_months, total_months, status, dept)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 0, 6, $8, $9)`,
+        [s.id, s.name, s.union, s.phone, s.email, hashPassword(s.password), s.role, s.status, s.dept]
+      );
+    }
 
-    // Seed a basic welcome notification
+    // 4. Seed dues ledger (staff members only — no auditor/admin entries needed)
+    const staffIds = seeds.filter(s => s.role === "staff");
+    for (const s of staffIds) {
+      await query(
+        `INSERT INTO dues_ledger (id, name, union_name, jan, feb, mar, apr, may, jun, total)
+         VALUES ($1, $2, $3, false, false, false, false, false, false, 0)`,
+        [s.id, s.name, s.union]
+      );
+    }
+
+    // 5. Seed welcome notification + activity
     await query(`
       INSERT INTO notifications (text, unread, time_str) VALUES
       ('HTU Welfare Scheme Database initialized successfully.', true, 'Just now');
     `);
-
-    // Seed a basic welcome activity
     await query(`
       INSERT INTO activities (title, amount, type, date_str) VALUES
       ('Database Seeder executed - Clean ledger initialized.', 'GH₵0', 'register', 'Just now');
     `);
 
-    return NextResponse.json({ success: true, message: "Neon PostgreSQL database reset and seeded with zeroed amounts successfully." });
+    return NextResponse.json({
+      success: true,
+      message: "Database reset and seeded successfully.",
+      credentials: {
+        staff:   "any staff email  / htu2026",
+        admin:   "manager@htu.edu.gh / manager2026",
+        auditor: "auditor@htu.edu.gh / audit2026"
+      }
+    });
   } catch (err) {
     console.error("DDL / Seeding Error:", err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

@@ -1,5 +1,17 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { pbkdf2Sync } from "crypto";
+
+// ── Password verification (matches setup hashing) ────────────────────────────
+function verifyPassword(password, stored) {
+  try {
+    const [, salt, hash] = stored.split(":");
+    const attempt = pbkdf2Sync(password, salt, 100_000, 64, "sha512").toString("hex");
+    return attempt === hash;
+  } catch {
+    return false;
+  }
+}
 
 export async function GET() {
   try {
@@ -100,6 +112,50 @@ export async function POST(request) {
     const { action, payload } = body;
     const timestamp = new Date().toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
     const ip = "196.216.x.x";
+
+    if (action === "login") {
+      const { email, password } = payload;
+      if (!email || !password) {
+        return NextResponse.json({ success: false, error: "Email and password are required." }, { status: 400 });
+      }
+
+      const result = await query(
+        `SELECT id, name, email, role, dept, password_hash, status FROM members WHERE LOWER(email) = LOWER($1)`,
+        [email.trim()]
+      );
+
+      if (result.rows.length === 0) {
+        return NextResponse.json({ success: false, error: "No account found with that email address." }, { status: 401 });
+      }
+
+      const member = result.rows[0];
+
+      // Account exists but has no password set yet (registered by admin without password)
+      if (!member.password_hash) {
+        return NextResponse.json({ success: false, error: "Account not activated. Contact the Welfare Secretariat." }, { status: 401 });
+      }
+
+      if (!verifyPassword(password, member.password_hash)) {
+        return NextResponse.json({ success: false, error: "Incorrect password. Please try again." }, { status: 401 });
+      }
+
+      // Log successful login
+      await query(
+        `INSERT INTO audit_logs (timestamp_str, username, action, details, ip_address) VALUES ($1, $2, 'Login', 'User authenticated via secure portal', $3)`,
+        [timestamp, member.email, ip]
+      );
+
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: member.id,
+          name: member.name,
+          email: member.email,
+          role: member.role,
+          dept: member.dept,
+        }
+      });
+    }
 
     if (action === "registerMember") {
       const { firstName, lastName, staffId, union, phone, email, department, employmentDate } = payload;

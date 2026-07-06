@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, Lock, Eye, EyeOff, Info } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, Info, AlertCircle, Loader2 } from "lucide-react";
 
 const HTULogo = ({ className = "w-36 h-36" }) => (
   <img
@@ -17,11 +17,24 @@ export default function LoginView({ onLogin }) {
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showHelpTooltip, setShowHelpTooltip] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!loginEmail) return;
-    onLogin(loginEmail, loginPassword);
+    if (!loginEmail || !loginPassword) return;
+
+    setAuthError("");
+    setIsLoading(true);
+
+    try {
+      const result = await onLogin(loginEmail.trim(), loginPassword);
+      if (result?.error) {
+        setAuthError(result.error);
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -71,6 +84,15 @@ export default function LoginView({ onLogin }) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+
+          {/* Error banner */}
+          {authError && (
+            <div className="flex items-start gap-3 bg-red-pale border border-red/30 text-red px-4 py-3 rounded-xl text-xs font-semibold animate-fade-in">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{authError}</span>
+            </div>
+          )}
+
           <div className="form-group">
             <div className="flex justify-between items-center">
               <label>Staff ID / Institutional Email</label>
@@ -80,22 +102,40 @@ export default function LoginView({ onLogin }) {
                   <Info className="w-3.5 h-3.5" /> Help Desk
                 </button>
                 {showHelpTooltip && (
-                  <div className="absolute right-0 top-6 z-[10] w-[260px] bg-white border border-border rounded-xl shadow-xl p-3 text-left space-y-1">
-                    <span className="text-[10px] font-bold text-navy uppercase block">Staff Portal Guide</span>
-                    <p className="text-[11px] text-text-2 leading-relaxed">To demo, input one of the following emails:</p>
-                    <ul className="text-[10.5px] font-semibold text-text-3 list-disc list-inside space-y-0.5">
-                      <li><span className="text-navy">Staff:</span> eugene.dushie@htu.edu.gh</li>
-                      <li><span className="text-navy">Manager:</span> manager@htu.edu.gh</li>
-                      <li><span className="text-navy">Auditor:</span> auditor@htu.edu.gh</li>
-                    </ul>
+                  <div className="absolute right-0 top-6 z-[10] w-[280px] bg-white border border-border rounded-xl shadow-xl p-3 text-left space-y-2">
+                    <span className="text-[10px] font-bold text-navy uppercase block">Demo Credentials</span>
+                    <div className="space-y-1.5 text-[11px]">
+                      <div className="bg-cream rounded-lg px-3 py-2">
+                        <span className="font-bold text-navy block">Staff Member</span>
+                        <span className="text-text-3">eugene.dushie@htu.edu.gh</span>
+                        <span className="text-text-3 block">Password: <span className="font-bold text-navy">htu2026</span></span>
+                      </div>
+                      <div className="bg-cream rounded-lg px-3 py-2">
+                        <span className="font-bold text-navy block">Scheme Manager</span>
+                        <span className="text-text-3">manager@htu.edu.gh</span>
+                        <span className="text-text-3 block">Password: <span className="font-bold text-navy">manager2026</span></span>
+                      </div>
+                      <div className="bg-cream rounded-lg px-3 py-2">
+                        <span className="font-bold text-navy block">System Auditor</span>
+                        <span className="text-text-3">auditor@htu.edu.gh</span>
+                        <span className="text-text-3 block">Password: <span className="font-bold text-navy">audit2026</span></span>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
             <div className="input-wrap">
               <Mail className="h-5 w-5" />
-              <input type="text" required placeholder="e.g. eugene.dushie@htu.edu.gh"
-                value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="form-input" />
+              <input
+                type="text"
+                required
+                placeholder="e.g. eugene.dushie@htu.edu.gh"
+                value={loginEmail}
+                onChange={(e) => { setLoginEmail(e.target.value); setAuthError(""); }}
+                className="form-input"
+                disabled={isLoading}
+              />
             </div>
           </div>
 
@@ -103,9 +143,16 @@ export default function LoginView({ onLogin }) {
             <label>Portal Password</label>
             <div className="input-wrap">
               <Lock className="h-5 w-5" />
-              <input type={showPassword ? "text" : "password"} required placeholder="••••••••"
-                value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="form-input" />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="eye-btn">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                placeholder="••••••••"
+                value={loginPassword}
+                onChange={(e) => { setLoginPassword(e.target.value); setAuthError(""); }}
+                className="form-input"
+                disabled={isLoading}
+              />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="eye-btn" disabled={isLoading}>
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
@@ -116,12 +163,20 @@ export default function LoginView({ onLogin }) {
               <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
               <span>Remember session</span>
             </label>
-            <a href="#" className="forgot-link" onClick={() => alert("Simulation: Reset code sent to institutional administrator.")}>
+            <a href="#" className="forgot-link" onClick={(e) => { e.preventDefault(); alert("Contact the Welfare Secretariat to reset your password.\n📞 0302 000 000\n✉ welfare@htu.edu.gh"); }}>
               Forgot Password?
             </a>
           </div>
 
-          <button type="submit" className="login-btn">Authorize Access</button>
+          <button type="submit" className="login-btn" disabled={isLoading}>
+            {isLoading ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" /> Verifying credentials...
+              </span>
+            ) : (
+              "Authorize Access"
+            )}
+          </button>
         </form>
 
         <div className="footer-note">

@@ -172,69 +172,80 @@ export default function WelfarePortal() {
   };
 
   // Handle Login Authentication Routing based on Credentials
-  const handleAuthentication = (email, password) => {
-    if (!email) return;
-    const cleanEmail = email.toLowerCase().trim();
+  const handleAuthentication = async (email, password) => {
+    if (!email || !password) return;
 
-    if (cleanEmail.includes("manager") || cleanEmail === "admin@htu.edu.gh") {
-      // Admin Role
-      setUserRole("admin");
-      setUserProfile({
-        name: "Scheme Manager",
-        id: "HTU/ADM-001",
-        email: "manager@htu.edu.gh",
-        role: "Administrator",
-        avatarInitials: "SM",
-        roleLabel: "Scheme Manager",
-        department: "Administration Secretariat",
-        enrolledDate: "January 15, 2018"
+    try {
+      const res = await fetch("/api/portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "login", payload: { email, password } })
       });
-      setActiveTab("dashboard");
-      setCurrentView("dashboard");
-      showToastMsg("Welcome back, Scheme Manager!");
-    } else if (cleanEmail.includes("audit")) {
-      // Auditor Role
-      setUserRole("auditor");
-      setUserProfile({
-        name: "System Auditor",
-        id: "HTU/AUD-002",
-        email: "auditor@htu.edu.gh",
-        role: "Audit Executive",
-        avatarInitials: "SA",
-        roleLabel: "System Auditor",
-        department: "Internal Audit Directorate",
-        enrolledDate: "November 01, 2021"
-      });
-      setActiveTab("dashboard");
-      setCurrentView("dashboard");
-      showToastMsg("Authorized audit trail console active.");
-    } else {
-      // Default to Staff Member Role
-      setUserRole("staff");
-      setUserProfile({
-        name: "Eugene Dushie",
-        id: "HTU/0042",
-        email: cleanEmail.includes("@") ? cleanEmail : `${cleanEmail}@htu.edu.gh`,
-        role: "TUTAG Member",
-        avatarInitials: "ED",
-        roleLabel: "Staff Member",
-        department: "Computer Science Department",
-        enrolledDate: "October 12, 2019"
-      });
-      setActiveTab("overview");
-      setCurrentView("dashboard");
-      showToastMsg(`Welcome back, Eugene Dushie!`);
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        // Bubble the error message back to LoginView
+        return { error: data.error || "Login failed. Please try again." };
+      }
+
+      const { user } = data;
+
+      if (user.role === "admin") {
+        setUserRole("admin");
+        setUserProfile({
+          name: user.name,
+          id: user.id,
+          email: user.email,
+          role: "Administrator",
+          avatarInitials: user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase(),
+          roleLabel: "Scheme Manager",
+          department: user.dept || "Administration Secretariat",
+          enrolledDate: "January 15, 2018"
+        });
+        setActiveTab("dashboard");
+        setCurrentView("dashboard");
+        showToastMsg(`Welcome back, ${user.name}!`);
+      } else if (user.role === "auditor") {
+        setUserRole("auditor");
+        setUserProfile({
+          name: user.name,
+          id: user.id,
+          email: user.email,
+          role: "Audit Executive",
+          avatarInitials: user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase(),
+          roleLabel: "System Auditor",
+          department: user.dept || "Internal Audit Directorate",
+          enrolledDate: "November 01, 2021"
+        });
+        setActiveTab("dashboard");
+        setCurrentView("dashboard");
+        showToastMsg("Authorized audit trail console active.");
+      } else {
+        // Staff member
+        setUserRole("staff");
+        setUserProfile({
+          name: user.name,
+          id: user.id,
+          email: user.email,
+          role: "TUTAG Member",
+          avatarInitials: user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase(),
+          roleLabel: "Staff Member",
+          department: user.dept || "Computer Science Department",
+          enrolledDate: "October 12, 2019"
+        });
+        setActiveTab("overview");
+        setCurrentView("dashboard");
+        showToastMsg(`Welcome back, ${user.name}!`);
+      }
+
+      fetchPortalData();
+      return { error: null };
+
+    } catch (err) {
+      console.error("Auth error:", err);
+      return { error: "Unable to connect. Please check your network and try again." };
     }
-
-    // Persist login to DB logs
-    fetch("/api/portal", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "addLoginLog",
-        payload: { email: cleanEmail }
-      })
-    }).then(() => fetchPortalData());
   };
 
   // Register new member submit
