@@ -33,6 +33,7 @@ export async function GET() {
         email VARCHAR(255) UNIQUE,
         password_hash VARCHAR(255),
         role VARCHAR(50) DEFAULT 'staff',
+        password_changed BOOLEAN DEFAULT FALSE,
         paid_months INT DEFAULT 0,
         total_months INT DEFAULT 6,
         status VARCHAR(50) DEFAULT 'New',
@@ -150,20 +151,20 @@ export async function GET() {
     // Admin password:  manager2026
     // Auditor password: audit2026
     const seeds = [
-      { id: "HTU/0042",    name: "Staff Member",    union: "TUTAG",   phone: "0244 123 456", email: "staff@gmail.com",           password: "htu2026",     role: "staff",   status: "New",    dept: "Computer Science Department"  },
-      { id: "HTU/ADM-001", name: "Scheme Manager",  union: "TUSAAG",  phone: "0302 000 000", email: "manager@htu.edu.gh",        password: "manager2026", role: "admin",   status: "Active", dept: "Administration Secretariat"    },
-      { id: "HTU/AUD-002", name: "System Auditor",  union: "TUSAAG",  phone: "0302 000 001", email: "auditor@htu.edu.gh",        password: "audit2026",   role: "auditor", status: "Active", dept: "Internal Audit Directorate"    },
-      { id: "HTU/0031",    name: "Kwame Asante",    union: "TUSAAG",  phone: "0244 789 012", email: "k.asante@htu.edu.gh",       password: "htu2026",     role: "staff",   status: "New",    dept: "Business School"               },
-      { id: "HTU/0112",    name: "James Darko",     union: "TEWU",    phone: "0277 456 789", email: "j.darko@htu.edu.gh",        password: "htu2026",     role: "staff",   status: "New",    dept: "Engineering"                   },
-      { id: "HTU/0087",    name: "Efua Forson",     union: "TUWAG",   phone: "0200 321 654", email: "e.forson@htu.edu.gh",       password: "htu2026",     role: "staff",   status: "New",    dept: "Art & Design"                  },
-      { id: "HTU/0249",    name: "Daniel Agbozo",   union: "TEWU",    phone: "0244 654 321", email: "d.agbozo@htu.edu.gh",       password: "htu2026",     role: "staff",   status: "New",    dept: "Engineering"                   },
+      { id: "HTU/0042",    name: "Staff Member",    union: "TUTAG",   phone: "0244 123 456", email: "staff@gmail.com",           password: "htu2026",     role: "staff",   passwordChanged: false, status: "New",    dept: "Computer Science Department"  },
+      { id: "HTU/ADM-001", name: "Scheme Manager",  union: "TUSAAG",  phone: "0302 000 000", email: "manager@htu.edu.gh",        password: "manager2026", role: "admin",   passwordChanged: true,  status: "Active", dept: "Administration Secretariat"    },
+      { id: "HTU/AUD-002", name: "System Auditor",  union: "TUSAAG",  phone: "0302 000 001", email: "auditor@htu.edu.gh",        password: "audit2026",   role: "auditor", passwordChanged: true,  status: "Active", dept: "Internal Audit Directorate"    },
+      { id: "HTU/0031",    name: "Kwame Asante",    union: "TUSAAG",  phone: "0244 789 012", email: "k.asante@htu.edu.gh",       password: "htu2026",     role: "staff",   passwordChanged: false, status: "New",    dept: "Business School"               },
+      { id: "HTU/0112",    name: "James Darko",     union: "TEWU",    phone: "0277 456 789", email: "j.darko@htu.edu.gh",        password: "htu2026",     role: "staff",   passwordChanged: false, status: "New",    dept: "Engineering"                   },
+      { id: "HTU/0087",    name: "Efua Forson",     union: "TUWAG",   phone: "0200 321 654", email: "e.forson@htu.edu.gh",       password: "htu2026",     role: "staff",   passwordChanged: false, status: "New",    dept: "Art & Design"                  },
+      { id: "HTU/0249",    name: "Daniel Agbozo",   union: "TEWU",    phone: "0244 654 321", email: "d.agbozo@htu.edu.gh",       password: "htu2026",     role: "staff",   passwordChanged: false, status: "New",    dept: "Engineering"                   },
     ];
 
     for (const s of seeds) {
       await query(
-        `INSERT INTO members (id, name, union_name, phone, email, password_hash, role, paid_months, total_months, status, dept)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 0, 6, $8, $9)`,
-        [s.id, s.name, s.union, s.phone, s.email, hashPassword(s.password), s.role, s.status, s.dept]
+        `INSERT INTO members (id, name, union_name, phone, email, password_hash, role, password_changed, paid_months, total_months, status, dept)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, 6, $9, $10)`,
+        [s.id, s.name, s.union, s.phone, s.email, hashPassword(s.password), s.role, s.passwordChanged, s.status, s.dept]
       );
     }
 

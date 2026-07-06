@@ -120,7 +120,7 @@ export async function POST(request) {
       }
 
       const result = await query(
-        `SELECT id, name, email, role, dept, password_hash, status FROM members WHERE LOWER(email) = LOWER($1)`,
+        `SELECT id, name, email, role, dept, password_hash, password_changed, status FROM members WHERE LOWER(email) = LOWER($1)`,
         [email.trim()]
       );
 
@@ -130,7 +130,6 @@ export async function POST(request) {
 
       const member = result.rows[0];
 
-      // Account exists but has no password set yet (registered by admin without password)
       if (!member.password_hash) {
         return NextResponse.json({ success: false, error: "Account not activated. Contact the Welfare Secretariat." }, { status: 401 });
       }
@@ -153,8 +152,49 @@ export async function POST(request) {
           email: member.email,
           role: member.role,
           dept: member.dept,
+          passwordChanged: member.password_changed,
         }
       });
+    }
+
+    if (action === "changePassword") {
+      const { email, currentPassword, newPassword } = payload;
+
+      if (!newPassword || newPassword.length < 6) {
+        return NextResponse.json({ success: false, error: "New password must be at least 6 characters." }, { status: 400 });
+      }
+
+      const result = await query(
+        `SELECT id, password_hash FROM members WHERE LOWER(email) = LOWER($1)`,
+        [email.trim()]
+      );
+
+      if (result.rows.length === 0) {
+        return NextResponse.json({ success: false, error: "Account not found." }, { status: 404 });
+      }
+
+      const member = result.rows[0];
+
+      if (!verifyPassword(currentPassword, member.password_hash)) {
+        return NextResponse.json({ success: false, error: "Current password is incorrect." }, { status: 401 });
+      }
+
+      const { randomBytes } = await import("crypto");
+      const salt = randomBytes(16).toString("hex");
+      const { pbkdf2Sync: hash } = await import("crypto");
+      const newHash = `pbkdf2:${salt}:${hash(newPassword, salt, 100_000, 64, "sha512").toString("hex")}`;
+
+      await query(
+        `UPDATE members SET password_hash = $1, password_changed = TRUE WHERE id = $2`,
+        [newHash, member.id]
+      );
+
+      await query(
+        `INSERT INTO audit_logs (timestamp_str, username, action, details, ip_address) VALUES ($1, $2, 'Password Change', 'Staff member set a new portal password', $3)`,
+        [timestamp, email, ip]
+      );
+
+      return NextResponse.json({ success: true });
     }
 
     if (action === "registerMember") {

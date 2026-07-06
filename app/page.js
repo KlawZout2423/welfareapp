@@ -15,6 +15,7 @@ import ContributionsLedger from "@/components/ContributionsLedger";
 import ClaimsTracker from "@/components/ClaimsTracker";
 import LoansTracker from "@/components/LoansTracker";
 import { SMSPanel, AuditLog, ReportsPanel, SettingsPanel } from "@/components/SystemPanels";
+import ForcePasswordReset from "@/components/ForcePasswordReset";
 import {
   RegisterMemberModal,
   ContributeDuesModal,
@@ -49,6 +50,11 @@ export default function WelfarePortal() {
 
   // Real-Time Toast Alerts
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
+  // Force password reset state (staff first-time login)
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [pendingLoginEmail, setPendingLoginEmail] = useState("");
+  const [pendingLoginPassword, setPendingLoginPassword] = useState("");
 
   const showToastMsg = (msg, type = "success") => {
     setToast({ show: true, message: msg, type });
@@ -185,11 +191,33 @@ export default function WelfarePortal() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        // Bubble the error message back to LoginView
         return { error: data.error || "Login failed. Please try again." };
       }
 
       const { user } = data;
+
+      // Staff on first login — force password reset before entering dashboard
+      if (user.role === "staff" && !user.passwordChanged) {
+        setPendingLoginEmail(email.trim());
+        // Store the entered password temporarily in state so the reset modal can
+        // pass it as currentPassword to the changePassword API for verification
+        setPendingLoginPassword(password);
+        setShowPasswordReset(true);
+        // Pre-load profile so the dashboard is ready once they complete reset
+        setUserRole("staff");
+        setUserProfile({
+          name: user.name,
+          id: user.id,
+          email: user.email,
+          role: "TUTAG Member",
+          avatarInitials: user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase(),
+          roleLabel: "Staff Member",
+          department: user.dept || "Computer Science Department",
+          enrolledDate: "October 12, 2019"
+        });
+        setActiveTab("overview");
+        return { error: null };
+      }
 
       if (user.role === "admin") {
         setUserRole("admin");
@@ -222,7 +250,7 @@ export default function WelfarePortal() {
         setCurrentView("dashboard");
         showToastMsg("Authorized audit trail console active.");
       } else {
-        // Staff member
+        // Staff member — password already changed
         setUserRole("staff");
         setUserProfile({
           name: user.name,
@@ -681,7 +709,7 @@ export default function WelfarePortal() {
               setIsMobileMenuOpen={setIsMobileMenuOpen}
             />
 
-            <main className="flex-1 p-8 space-y-6">
+            <main className="flex-1 p-8 space-y-6 lg:p-8 md:p-6 p-4">
               
               {/* TAB: STAFF OVERVIEW */}
               {activeTab === "overview" && userRole === "staff" && (
@@ -861,6 +889,22 @@ export default function WelfarePortal() {
         onClose={() => setShowReportModal(false)}
         onSubmit={handleGenerateReport}
       />
+
+      {/* FORCE PASSWORD RESET — shown to staff on first login */}
+      {showPasswordReset && (
+        <ForcePasswordReset
+          userEmail={pendingLoginEmail}
+          currentPassword={pendingLoginPassword}
+          onSuccess={() => {
+            setShowPasswordReset(false);
+            setPendingLoginEmail("");
+            setPendingLoginPassword("");
+            setCurrentView("dashboard");
+            showToastMsg("Password updated. Welcome to the portal!");
+            fetchPortalData();
+          }}
+        />
+      )}
 
     </div>
   );
