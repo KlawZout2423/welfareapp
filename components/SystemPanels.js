@@ -1,0 +1,277 @@
+"use client";
+
+import { Check, Info, ShieldCheck } from "lucide-react";
+
+// --- SMS Broadcast Panel ---
+export function SMSPanel({ userRole, smsData, setSmsData, smsHistory, handleSendSMS }) {
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="section-header">
+        <div>
+          <h2>SMS Broadcast</h2>
+          <p>Send automated SMS messages to scheme members</p>
+        </div>
+      </div>
+      <div className="two-col">
+        <div className="card">
+          <div className="card-header"><div className="card-title">Compose Message</div></div>
+          <form onSubmit={handleSendSMS} className="card-body space-y-4">
+            <div className="form-field">
+              <label>Recipients</label>
+              <select value={smsData.recipients} onChange={(e) => setSmsData({ ...smsData, recipients: e.target.value })} disabled={userRole === "auditor"}>
+                <option>All Members (248)</option>
+                <option>TUTAG Members only</option>
+                <option>Defaulting Members (8)</option>
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Message Type</label>
+              <select value={smsData.type} onChange={(e) => setSmsData({ ...smsData, type: e.target.value })} disabled={userRole === "auditor"}>
+                <option>Contribution Reminder</option>
+                <option>General Announcement</option>
+                <option>Defaulters Alert</option>
+                <option>Claim Status Update</option>
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Message Content</label>
+              <textarea rows="4" required placeholder="Type broadcast message..." value={smsData.message}
+                onChange={(e) => setSmsData({ ...smsData, message: e.target.value })} disabled={userRole === "auditor"} />
+            </div>
+            {userRole !== "auditor" && (
+              <button type="submit" className="btn btn-primary w-full justify-center">Send Broadcast</button>
+            )}
+          </form>
+        </div>
+
+        <div className="card">
+          <div className="card-header"><div className="card-title">Broadcast History</div></div>
+          <div className="card-body" style={{ padding: "0" }}>
+            {smsHistory.map((s, idx) => (
+              <div key={idx} className="activity-item">
+                <div className="activity-icon" style={{
+                  backgroundColor: s.status === "success" ? "var(--green-pale)" : "var(--gold-pale)",
+                  color: s.status === "success" ? "var(--green)" : "#8a6a00"
+                }}>
+                  {s.status === "success" ? <Check className="w-4 h-4" /> : <Info className="w-4 h-4" />}
+                </div>
+                <div className="activity-body text-left">
+                  <div className="activity-title font-semibold">{s.title}</div>
+                  <div style={{ fontSize: "12px", color: "var(--text-3)" }}>{s.recipients} · {s.date}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Audit Trail Log ---
+export function AuditLog({ auditLogs }) {
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="section-header">
+        <div>
+          <h2>Audit Trail log</h2>
+          <p>Full system activity log for accountability</p>
+        </div>
+        <button className="btn btn-outline" onClick={() => alert("Simulation: Audit log exported.")}>Export Log</button>
+      </div>
+      <div className="card">
+        <div className="card-header"><div className="card-title">System Activity Log</div></div>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th><th>User</th><th>Action</th><th>Details</th><th>IP Address</th>
+            </tr>
+          </thead>
+          <tbody>
+            {auditLogs.map((log, idx) => (
+              <tr key={idx}>
+                <td style={{ fontSize: "12px", color: "var(--text-3)" }}>{log.timestamp}</td>
+                <td className="font-semibold">{log.user}</td>
+                <td>
+                  <span className={`badge ${log.action === "Payment" || log.action === "Register" ? "badge-green" : log.action === "Claim" ? "badge-blue" : "badge-gold"}`}>
+                    {log.action}
+                  </span>
+                </td>
+                <td>{log.details}</td>
+                <td style={{ fontSize: "12px", color: "var(--text-3)" }}>{log.ip}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// --- Reports Panel ---
+export function ReportsPanel({ userRole, reportsList, setShowReportModal, handleGenerateReport }) {
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="section-header">
+        <div>
+          <h2>Financial Reports</h2>
+          <p>View and generate financial performance reports for the HTU Welfare Scheme.</p>
+        </div>
+        {userRole === "admin" && (
+          <button className="btn btn-primary" onClick={() => setShowReportModal(true)}>Generate Report</button>
+        )}
+      </div>
+      <div className="card">
+        <div className="card-header"><div className="card-title">Available Reports</div></div>
+        <div className="card-body" style={{ padding: "0" }}>
+          <table className="data-table">
+            <thead>
+              <tr><th>Report Name</th><th>Period</th><th>Date</th><th>Status</th><th>Action</th></tr>
+            </thead>
+            <tbody>
+              {reportsList.map((r, idx) => (
+                <tr key={idx}>
+                  <td style={{ fontWeight: "500" }}>{r.name}</td>
+                  <td>{r.period}</td>
+                  <td>{r.date}</td>
+                  <td>
+                    <span className={`badge ${r.status === "Available" ? "badge-green" : "badge-gold"}`}>{r.status}</span>
+                  </td>
+                  <td>
+                    {r.status === "Available" ? (
+                      <button className="btn btn-outline btn-sm" onClick={() => alert(`Simulated Download of PDF Report for ${r.period}`)}>Download PDF</button>
+                    ) : (
+                      userRole === "admin" && (
+                        <button className="btn btn-primary font-bold btn-sm" onClick={() => handleGenerateReport(r.name, r.period)}>Generate</button>
+                      )
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Settings Panel ---
+export function SettingsPanel({ userRole, userProfile, schemeConfig, setSchemeConfig, members, showToastMsg }) {
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="section-header">
+        <div>
+          <h2>{userRole === "staff" ? "My Profile Settings" : "System Settings"}</h2>
+          <p>{userRole === "staff" ? "View and manage your personal HTU membership details." : "Configure scheme parameters and system roles access."}</p>
+        </div>
+      </div>
+
+      {userRole === "staff" ? (
+        <div className="card max-w-2xl mx-auto">
+          <div className="card-header"><div className="card-title font-semibold text-navy">Member Profile Registry Details</div></div>
+          <div className="card-body space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="form-field">
+                <label>Full Name</label>
+                <input type="text" defaultValue={userProfile.name} disabled className="bg-cream/40 cursor-not-allowed font-medium" />
+              </div>
+              <div className="form-field">
+                <label>Staff registry ID</label>
+                <input type="text" defaultValue={userProfile.id} disabled className="bg-cream/40 cursor-not-allowed font-semibold" />
+              </div>
+            </div>
+            <div className="form-field">
+              <label>Work Email Address</label>
+              <input type="email" defaultValue={userProfile.email} disabled className="bg-cream/40 cursor-not-allowed" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="form-field">
+                <label>Academic Department</label>
+                <input type="text" defaultValue={userProfile.department} disabled className="bg-cream/40 cursor-not-allowed" />
+              </div>
+              <div className="form-field">
+                <label>Monthly Dues tier</label>
+                <input type="text" defaultValue={`GH₵ ${schemeConfig.monthlyContribution}.00 / Month`} disabled className="bg-cream/40 cursor-not-allowed" />
+              </div>
+            </div>
+            <div className="form-field">
+              <label>Date of Scheme Enrollment</label>
+              <input type="text" defaultValue={userProfile.enrolledDate} disabled className="bg-cream/40 cursor-not-allowed font-semibold text-text-3" />
+            </div>
+            <div className="border-t border-border pt-6 flex justify-between items-center text-xs text-text-3 font-semibold">
+              <span className="flex items-center gap-1 text-green">
+                <ShieldCheck className="w-4 h-4 text-green" /> Verification Status: Verified Active
+              </span>
+              <button onClick={() => alert("Verification request sent to Welfare Secretariat.")} className="btn btn-outline btn-sm">Request Update</button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="two-col">
+          <div className="card">
+            <div className="card-header"><div className="card-title">Scheme Configuration</div></div>
+            <div className="card-body space-y-4">
+              <div className="form-field">
+                <label>Monthly Contribution (GH₵)</label>
+                <input type="number" value={schemeConfig.monthlyContribution}
+                  onChange={(e) => setSchemeConfig({ ...schemeConfig, monthlyContribution: parseFloat(e.target.value) })}
+                  disabled={userRole === "auditor"} />
+              </div>
+              <div className="form-field">
+                <label>Eligibility Threshold (months)</label>
+                <input type="number" value={schemeConfig.eligibilityThreshold}
+                  onChange={(e) => setSchemeConfig({ ...schemeConfig, eligibilityThreshold: parseInt(e.target.value) })}
+                  disabled={userRole === "auditor"} />
+              </div>
+              <div className="form-field">
+                <label>SMS Gateway Provider</label>
+                <select value={schemeConfig.smsGateway}
+                  onChange={(e) => setSchemeConfig({ ...schemeConfig, smsGateway: e.target.value })}
+                  disabled={userRole === "auditor"}>
+                  <option>Hubtel</option><option>mNotify</option><option>Africa&apos;s Talking</option>
+                </select>
+              </div>
+              <div className="form-field">
+                <label>Scheme Financial Year</label>
+                <select value={schemeConfig.financialYear}
+                  onChange={(e) => setSchemeConfig({ ...schemeConfig, financialYear: e.target.value })}
+                  disabled={userRole === "auditor"}>
+                  <option>January – December</option>
+                </select>
+              </div>
+              {userRole === "admin" && (
+                <button className="btn btn-primary" onClick={() => showToastMsg("Scheme configuration settings saved!")}>Save Configuration</button>
+              )}
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-header"><div className="card-title">User Roles &amp; Access Registry</div></div>
+            <div className="card-body" style={{ padding: "0" }}>
+              <table className="data-table">
+                <thead>
+                  <tr><th>Access Class Role</th><th>Enrolled accounts</th><th>Gateway Status</th></tr>
+                </thead>
+                <tbody>
+                  {[
+                    { role: "Scheme Manager (Admin)", count: 1 },
+                    { role: "Scheme Accountant", count: 1 },
+                    { role: "Welfare Scheme Board Members", count: 5 },
+                    { role: "Staff Members", count: members.length },
+                  ].map((r, idx) => (
+                    <tr key={idx}>
+                      <td style={{ fontWeight: "500" }}>{r.role}</td>
+                      <td>{r.count}</td>
+                      <td><span className="badge badge-green">Active</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
