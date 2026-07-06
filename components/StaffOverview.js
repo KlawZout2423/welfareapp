@@ -3,10 +3,42 @@
 import {
   CreditCard, CheckCircle, Landmark, Heart,
   ShieldCheck, Mail, Building, User,
-  AlertCircle, Banknote, CheckCheck
+  AlertCircle, Banknote, CheckCheck, TrendingUp, Calendar
 } from "lucide-react";
 import { STAFF_QUICK_ACTIONS, STAFF_SERVICES } from "@/lib/navConfig";
 import WelfareNoticeboard from "@/components/WelfareNoticeboard";
+
+// ── Month dues tracker (Jan–Jun) ──────────────────────────────────────────────
+const TRACKED_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+
+function DuesTracker({ personalContributions }) {
+  const paidSet = new Set(
+    personalContributions.map(c => {
+      const raw = (c.month || "").slice(0, 3);
+      return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+    })
+  );
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {TRACKED_MONTHS.map((m) => {
+        const paid = paidSet.has(m);
+        return (
+          <div key={m} className="flex flex-col items-center gap-1">
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold transition-all ${
+              paid
+                ? "bg-green text-white shadow-sm"
+                : "bg-slate-100 text-slate-400 border border-slate-200"
+            }`}>
+              {paid ? "✓" : "✗"}
+            </div>
+            <span className={`text-[9px] font-bold ${paid ? "text-green" : "text-slate-400"}`}>{m}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 // ── Progress Tracker ──────────────────────────────────────────────────────────
 function ProgressTracker({ steps, currentStep }) {
@@ -54,6 +86,20 @@ export default function StaffOverview({
   const pendingClaims = (claims || []).filter(c => c.applicant === userProfile.name && c.status === "Pending");
   const paidMonths = personalContributions.length;
   const ytdTotal = personalContributions.reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
+  const threshold = schemeConfig.eligibilityThreshold || 6;
+  const progressPct = Math.min((paidMonths / threshold) * 100, 100);
+
+  // Last paid month
+  const lastContrib = personalContributions[0];
+  const lastPayment = lastContrib ? lastContrib.month : "—";
+
+  // Next due month (simple: current month label)
+  const nextDue = "July 2026";
+
+  // Outstanding amount
+  const outstanding = paidMonths < threshold
+    ? (threshold - paidMonths) * schemeConfig.monthlyContribution
+    : 0;
 
   const latestClaim = (claims || []).find(c => c.applicant === userProfile.name);
   const claimStep = !latestClaim ? 0
@@ -61,92 +107,117 @@ export default function StaffOverview({
     : latestClaim.status === "Approved" ? 3
     : 0;
 
+  // Quick actions — filter out "Pay Dues" since it's in the hero strip
+  const filteredQuickActions = STAFF_QUICK_ACTIONS.filter(a => a.id !== "pay");
+
   return (
     <div className="space-y-6 animate-fade-in">
 
-      {/* ── IDENTITY STRIP ──────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-center gap-5 bg-gradient-to-br from-[#0d1e4c] to-[#060f26] text-white px-6 py-5 rounded-2xl shadow-md">
-        {/* Avatar */}
-        <div className="w-14 h-14 bg-white/10 border border-white/20 rounded-full flex items-center justify-center relative shrink-0">
-          <span className="text-lg font-extrabold">{userProfile.avatarInitials || "ED"}</span>
-          <div className="w-3 h-3 bg-[#1a7a4a] border-2 border-[#060f26] rounded-full absolute bottom-0 right-0" />
+      {/* ── HERO HEADER — personalized greeting + key financials ────────── */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-[#0d1e4c] via-[#0f2257] to-[#060f26] text-white rounded-2xl shadow-lg px-6 py-6">
+        {/* subtle grid pattern */}
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
+          style={{ backgroundImage: "repeating-linear-gradient(45deg,#fff 0,#fff 1px,transparent 1px,transparent 40px),repeating-linear-gradient(-45deg,#fff 0,#fff 1px,transparent 1px,transparent 40px)" }} />
+
+        <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center gap-5">
+
+          {/* Avatar */}
+          <div className="relative shrink-0">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-extrabold border-2 border-white/20 shadow-inner"
+              style={{ background: "linear-gradient(135deg,#1565c0 0%,#0d1e4c 100%)" }}>
+              {userProfile.avatarInitials || "ED"}
+            </div>
+            <div className="w-3.5 h-3.5 bg-[#1a7a4a] border-2 border-[#060f26] rounded-full absolute -bottom-0.5 -right-0.5" />
+          </div>
+
+          {/* Greeting + identity */}
+          <div className="flex-grow min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <h2 className="text-xl font-extrabold tracking-tight">
+                Good day, {userProfile.name.split(" ")[0]} 👋
+              </h2>
+              <span className="inline-flex items-center gap-1 bg-green-500/15 border border-green-500/25 text-[#2ecc71] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                <ShieldCheck className="w-3 h-3" /> Verified Member
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2 text-[11px] text-white/60 font-medium">
+              <span className="inline-flex items-center gap-1"><User className="w-3 h-3" />{userProfile.id}</span>
+              <span className="inline-flex items-center gap-1"><Building className="w-3 h-3" />{userProfile.department}</span>
+              <span className="inline-flex items-center gap-1"><Mail className="w-3 h-3" />{userProfile.email}</span>
+            </div>
+          </div>
+
+          {/* Key financials strip */}
+          <div className="flex sm:flex-col gap-4 sm:gap-2 shrink-0 sm:text-right text-left w-full sm:w-auto">
+            <div>
+              <span className="text-[9px] font-bold text-white/40 uppercase tracking-wider block">Last Payment</span>
+              <span className="text-sm font-bold text-white">{lastPayment}</span>
+            </div>
+            <div>
+              <span className="text-[9px] font-bold text-white/40 uppercase tracking-wider block">Next Due</span>
+              <span className="text-sm font-bold text-gold">{nextDue}</span>
+            </div>
+            <div>
+              <span className="text-[9px] font-bold text-white/40 uppercase tracking-wider block">Outstanding</span>
+              <span className={`text-sm font-bold ${outstanding > 0 ? "text-red-400" : "text-[#2ecc71]"}`}>
+                {outstanding > 0 ? `GH₵${outstanding}` : "Clear"}
+              </span>
+            </div>
+          </div>
         </div>
 
-        {/* Info */}
-        <div className="flex-grow text-center sm:text-left">
-          <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
-            <h2 className="text-lg font-extrabold tracking-tight">{userProfile.name}</h2>
-            <span className="inline-flex items-center gap-1 bg-green-500/15 border border-green-500/25 text-[#2ecc71] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-              <ShieldCheck className="w-3 h-3" /> Verified
+        {/* Contribution progress bar */}
+        <div className="relative z-10 mt-5 pt-4 border-t border-white/10">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-white/60 uppercase tracking-wider">Contribution Progress</span>
+            <span className="text-[11px] font-bold text-white">
+              GH₵{ytdTotal.toFixed(0)} / GH₵{(threshold * schemeConfig.monthlyContribution).toFixed(0)}
             </span>
           </div>
-          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2">
-            <span className="inline-flex items-center gap-1 bg-white/5 border border-white/10 text-white/70 text-[11px] font-medium px-2 py-0.5 rounded-lg">
-              <User className="w-3 h-3" />{userProfile.id}
-            </span>
-            <span className="inline-flex items-center gap-1 bg-white/5 border border-white/10 text-white/70 text-[11px] font-medium px-2 py-0.5 rounded-lg">
-              <Building className="w-3 h-3" />{userProfile.department || "Computer Science"}
-            </span>
-            <span className="inline-flex items-center gap-1 bg-white/5 border border-white/10 text-white/70 text-[11px] font-medium px-2 py-0.5 rounded-lg">
-              <Mail className="w-3 h-3" />{userProfile.email}
-            </span>
+          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{
+                width: `${progressPct}%`,
+                background: progressPct >= 100
+                  ? "linear-gradient(90deg,#1a7a4a,#2ecc71)"
+                  : "linear-gradient(90deg,#1565c0,#3b82f6)"
+              }}
+            />
           </div>
-        </div>
-
-        {/* CTA */}
-        <button
-          className="btn btn-gold btn-sm shrink-0 font-bold"
-          onClick={() => setShowPaymentModal(true)}
-        >
-          <CreditCard className="w-3.5 h-3.5" /> Pay Monthly Dues
-        </button>
-      </div>
-
-      {/* ── QUICK ACTIONS ───────────────────────────────────────────────── */}
-      <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
-        {STAFF_QUICK_ACTIONS.map((item) => {
-          const Icon = item.icon;
-          const handleClick = () => {
-            if (item.modal === "payment") setShowPaymentModal(true);
-            else if (item.modal === "claim") setShowClaimModal(true);
-            else if (item.modal === "loan") setShowLoanModal(true);
-            else if (item.tab) setActiveTab?.(item.tab);
-            else if (item.alert) alert(item.alert);
-          };
-          return (
+          <div className="flex justify-between mt-2.5">
+            <DuesTracker personalContributions={personalContributions} />
             <button
-              key={item.id}
-              onClick={handleClick}
-              className="flex flex-col items-center gap-2.5 bg-white border border-slate-200/80 hover:border-slate-800 hover:shadow-sm p-4.5 rounded-2xl cursor-pointer transition-all duration-200 min-w-[130px] shrink-0 hover:-translate-y-0.5 outline-none"
+              onClick={() => setShowPaymentModal(true)}
+              className="btn btn-gold btn-sm shrink-0 self-end font-bold ml-4"
             >
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${item.color}`}>
-                <Icon className="w-5.5 h-5.5" />
-              </div>
-              <span className="text-[12px] font-bold text-slate-600">{item.label}</span>
+              <CreditCard className="w-3.5 h-3.5" /> Pay Dues
             </button>
-          );
-        })}
+          </div>
+        </div>
       </div>
 
       {/* ── STATS ───────────────────────────────────────────────────────── */}
       <div className="stats-grid">
         <div className="stat-card navy">
           <div className="stat-icon navy-bg"><Banknote className="w-5 h-5" /></div>
-          <div className="stat-val">GH₵{ytdTotal.toFixed(2)}</div>
+          <div className="stat-val">GH₵{ytdTotal.toFixed(0)}</div>
           <div className="stat-label-text">Contributions YTD</div>
-          <span className="stat-change up">↑ GH₵{schemeConfig.monthlyContribution}/mo · {paidMonths} months</span>
+          <span className="stat-change up">GH₵{schemeConfig.monthlyContribution}/mo · {paidMonths} paid</span>
         </div>
         <div className="stat-card green">
           <div className="stat-icon green-bg"><CheckCircle className="w-5 h-5" /></div>
           <div className="stat-val">Active</div>
           <div className="stat-label-text">Membership Status</div>
-          <span className="stat-change up">Compliant · {paidMonths}/{schemeConfig.eligibilityThreshold || 6} months</span>
+          <span className="stat-change up">{paidMonths}/{threshold} months compliant</span>
         </div>
         <div className="stat-card gold">
           <div className="stat-icon gold-bg"><Landmark className="w-5 h-5" /></div>
           <div className="stat-val">{activeLoans.length > 0 ? `GH₵${activeLoans[0].amount}` : "None"}</div>
           <div className="stat-label-text">Active Loan</div>
-          <span className="stat-change down">{activeLoans.length > 0 ? activeLoans[0].id : "No outstanding loans"}</span>
+          <span className={`stat-change ${activeLoans.length > 0 ? "down" : "up"}`}>
+            {activeLoans.length > 0 ? activeLoans[0].id : "No outstanding loans"}
+          </span>
         </div>
         <div className="stat-card red">
           <div className="stat-icon red-bg"><Heart className="w-5 h-5" /></div>
@@ -156,45 +227,84 @@ export default function StaffOverview({
         </div>
       </div>
 
-      {/* ── WELFARE SERVICES CARDS ──────────────────────────────────────── */}
-      <div className="welfare-cards-grid">
-        {STAFF_SERVICES.map((svc) => {
-          const Icon = svc.icon;
-          const colorMap = {
-            navy: { wrap: "bg-navy/10 text-navy", border: "border-navy/20" },
-            gold: { wrap: "bg-gold-pale text-gold", border: "border-gold/20" },
-            green: { wrap: "bg-green-pale text-green", border: "border-green/20" },
-            red: { wrap: "bg-red-pale text-red", border: "border-red/20" },
-            blue: { wrap: "bg-blue-pale text-blue", border: "border-blue/20" },
-          };
-          const colors = colorMap[svc.color] || colorMap.navy;
-
+      {/* ── QUICK ACTIONS (Pay Dues removed — lives in hero) ────────────── */}
+      <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
+        {filteredQuickActions.map((item) => {
+          const Icon = item.icon;
           const handleClick = () => {
-            if (svc.modal === "payment") setShowPaymentModal(true);
-            else if (svc.modal === "claim") setShowClaimModal(true);
-            else if (svc.modal === "loan") setShowLoanModal(true);
-            else if (svc.tab) setActiveTab?.(svc.tab);
-            else if (svc.alert) alert(svc.alert);
+            if (item.modal === "claim") setShowClaimModal(true);
+            else if (item.modal === "loan") setShowLoanModal(true);
+            else if (item.tab) setActiveTab?.(item.tab);
+            else if (item.alert) alert(item.alert);
           };
-
           return (
-            <div key={svc.id} className={`welfare-card ${colors.border}`} style={{ "--card-border": `var(--border)` }}>
-              <div>
-                <div className={`wc-icon-wrap ${colors.wrap}`}>
-                  <Icon className="w-5 h-5" />
-                </div>
-                <div className="wc-title">{svc.title}</div>
-                <div className="wc-desc">{svc.desc}</div>
+            <button
+              key={item.id}
+              onClick={handleClick}
+              className="flex flex-col items-center gap-2.5 bg-white border border-slate-200/80 hover:border-slate-800 hover:shadow-sm p-4 rounded-xl cursor-pointer transition-all duration-200 min-w-[110px] shrink-0 hover:-translate-y-0.5 outline-none"
+            >
+              <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${item.color}`}>
+                <Icon className="w-5 h-5" />
               </div>
-              <button
-                onClick={handleClick}
-                className={`wc-btn btn btn-sm ${svc.btnColor === "gold" ? "btn-gold" : svc.btnColor === "outline" ? "btn-outline" : "btn-primary"}`}
-              >
-                {svc.btnLabel}
-              </button>
-            </div>
+              <span className="text-[11px] font-bold text-slate-600">{item.label}</span>
+            </button>
           );
         })}
+      </div>
+
+      {/* ── WELFARE SERVICES CARDS ──────────────────────────────────────── */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-bold text-navy uppercase tracking-wider">Welfare Services</h3>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {STAFF_SERVICES.map((svc) => {
+            const Icon = svc.icon;
+            const colorMap = {
+              navy: { wrap: "bg-navy/8 text-navy", top: "bg-navy" },
+              gold: { wrap: "bg-gold-pale text-gold", top: "bg-gold" },
+              green: { wrap: "bg-green-pale text-green", top: "bg-green" },
+              red: { wrap: "bg-red-pale text-red", top: "bg-red" },
+              blue: { wrap: "bg-blue-pale text-blue", top: "bg-blue" },
+            };
+            const colors = colorMap[svc.color] || colorMap.navy;
+
+            const handleClick = () => {
+              if (svc.modal === "payment") setShowPaymentModal(true);
+              else if (svc.modal === "claim") setShowClaimModal(true);
+              else if (svc.modal === "loan") setShowLoanModal(true);
+              else if (svc.tab) setActiveTab?.(svc.tab);
+              else if (svc.alert) alert(svc.alert);
+            };
+
+            return (
+              <div key={svc.id}
+                className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col"
+              >
+                {/* colored top accent bar */}
+                <div className={`h-1 w-full ${colors.top}`} />
+                <div className="p-5 flex flex-col flex-1 gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colors.wrap}`}>
+                    <Icon className="w-4.5 h-4.5" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-navy-deep mb-1">{svc.title}</div>
+                    <div className="text-[11px] text-text-2 leading-relaxed">{svc.desc}</div>
+                  </div>
+                  <button
+                    onClick={handleClick}
+                    className={`mt-auto btn btn-sm self-start font-bold ${
+                      svc.btnColor === "gold" ? "btn-gold" :
+                      svc.btnColor === "outline" ? "btn-outline" : "btn-primary"
+                    }`}
+                  >
+                    {svc.btnLabel}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* ── TWO-COLUMN: CLAIM STATUS + RECENT CONTRIBUTIONS ─────────────── */}
