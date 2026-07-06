@@ -150,7 +150,7 @@ export async function GET() {
     // Admin password:  manager2026
     // Auditor password: audit2026
     const seeds = [
-      { id: "HTU/0042",    name: "Eugene Dushie",   union: "TUTAG",   phone: "0244 123 456", email: "eugene.dushie@htu.edu.gh", password: "htu2026",     role: "staff",   status: "New",    dept: "Computer Science Department"  },
+      { id: "HTU/0042",    name: "Staff Member",    union: "TUTAG",   phone: "0244 123 456", email: "staff@gmail.com",           password: "htu2026",     role: "staff",   status: "New",    dept: "Computer Science Department"  },
       { id: "HTU/ADM-001", name: "Scheme Manager",  union: "TUSAAG",  phone: "0302 000 000", email: "manager@htu.edu.gh",        password: "manager2026", role: "admin",   status: "Active", dept: "Administration Secretariat"    },
       { id: "HTU/AUD-002", name: "System Auditor",  union: "TUSAAG",  phone: "0302 000 001", email: "auditor@htu.edu.gh",        password: "audit2026",   role: "auditor", status: "Active", dept: "Internal Audit Directorate"    },
       { id: "HTU/0031",    name: "Kwame Asante",    union: "TUSAAG",  phone: "0244 789 012", email: "k.asante@htu.edu.gh",       password: "htu2026",     role: "staff",   status: "New",    dept: "Business School"               },

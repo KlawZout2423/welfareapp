@@ -107,7 +107,7 @@ export default function LoginView({ onLogin }) {
                     <div className="space-y-1.5 text-[11px]">
                       <div className="bg-cream rounded-lg px-3 py-2">
                         <span className="font-bold text-navy block">Staff Member</span>
-                        <span className="text-text-3">eugene.dushie@htu.edu.gh</span>
+                        <span className="text-text-3">staff@gmail.com</span>
                         <span className="text-text-3 block">Password: <span className="font-bold text-navy">htu2026</span></span>
                       </div>
                       <div className="bg-cream rounded-lg px-3 py-2">
