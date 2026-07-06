@@ -50,29 +50,6 @@ export default function LoginView({ onLogin }) {
           <div className="scheme-title font-semibold text-gold tracking-widest">Staff Welfare Scheme</div>
           <div className="italic text-white/70 text-xs mt-1 mb-4 font-serif">&quot;Adanu Nazu Kekeli&quot; (Knowledge Becomes Light)</div>
           <div className="divider"></div>
-
-          <div className="text-left space-y-4 mb-6 max-w-sm mx-auto">
-            <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-              <span className="text-[10px] font-bold text-gold uppercase tracking-wider block mb-1">Our Mission</span>
-              <p className="text-xs text-white/60 leading-relaxed font-sans">
-                To develop highly competent human capital through career-focused education, skills training, research, and innovation in partnership with stakeholders.
-              </p>
-            </div>
-            <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-              <span className="text-[10px] font-bold text-gold uppercase tracking-wider block mb-1">Our Vision</span>
-              <p className="text-xs text-white/60 leading-relaxed font-sans">
-                To become a hub of practical education and innovation advancing sustainable global development.
-              </p>
-            </div>
-          </div>
-
-          <div className="stat-row">
-            <div className="stat"><div className="stat-number">GH₵1.2M+</div><div className="stat-label">Reserve Fund</div></div>
-            <div className="stat-divider"></div>
-            <div className="stat"><div className="stat-number">GH₵485K+</div><div className="stat-label">Total Payout</div></div>
-            <div className="stat-divider"></div>
-            <div className="stat"><div className="stat-number">1,840</div><div className="stat-label">Active Staff</div></div>
-          </div>
         </div>
       </div>
 

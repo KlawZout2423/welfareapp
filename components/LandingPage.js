@@ -254,12 +254,6 @@ export default function LandingPage({ onEnterPortal }) {
                 <span className="text-white/60">Latest Amendments:</span>
                 <span className="font-bold text-white">June 2026</span>
               </div>
-              <button 
-                onClick={() => alert("Simulation: Downloading Welfare Constitution PDF.")}
-                className="w-full btn btn-outline border-white/20 hover:border-white/50 text-white mt-2 justify-center text-xs font-semibold py-2.5"
-              >
-                Download Constitution Book
-              </button>
             </div>
           </div>
         </div>
