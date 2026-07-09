@@ -600,6 +600,23 @@ export async function POST(request) {
         return NextResponse.json({ success: false, error: "You can only submit claims for yourself." }, { status: 403 });
       }
 
+      // Enforce 6 consecutive months dues compliance check
+      const ledgerCheck = await query(
+        `SELECT jan, feb, mar, apr, may, jun FROM dues_ledger WHERE id = $1`,
+        [index]
+      );
+      if (ledgerCheck.rows.length === 0) {
+        return NextResponse.json({ success: false, error: "Dues ledger record not found for this member." }, { status: 400 });
+      }
+      const ledger = ledgerCheck.rows[0];
+      const isCompliant = ledger.jan && ledger.feb && ledger.mar && ledger.apr && ledger.may && ledger.jun;
+      if (!isCompliant) {
+        return NextResponse.json({
+          success: false,
+          error: "Ineligibility Default: Members must have paid all 6 consecutive months (Jan–Jun) to submit a benefit claim."
+        }, { status: 400 });
+      }
+
       // Generate ID server-side
       const claimId = `CLM-${new Date().getFullYear()}-${randomUUID().slice(0, 6).toUpperCase()}`;
 
@@ -635,6 +652,23 @@ export async function POST(request) {
       // Staff can only submit loans for themselves
       if (index !== session.userId) {
         return NextResponse.json({ success: false, error: "You can only request loans for yourself." }, { status: 403 });
+      }
+
+      // Enforce 6 consecutive months dues compliance check
+      const ledgerCheck = await query(
+        `SELECT jan, feb, mar, apr, may, jun FROM dues_ledger WHERE id = $1`,
+        [index]
+      );
+      if (ledgerCheck.rows.length === 0) {
+        return NextResponse.json({ success: false, error: "Dues ledger record not found for this member." }, { status: 400 });
+      }
+      const ledger = ledgerCheck.rows[0];
+      const isCompliant = ledger.jan && ledger.feb && ledger.mar && ledger.apr && ledger.may && ledger.jun;
+      if (!isCompliant) {
+        return NextResponse.json({
+          success: false,
+          error: "Ineligibility Default: Members must have paid all 6 consecutive months (Jan–Jun) to submit an emergency loan request."
+        }, { status: 400 });
       }
 
       // Generate ID server-side

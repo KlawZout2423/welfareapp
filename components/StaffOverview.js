@@ -89,6 +89,14 @@ export default function StaffOverview({
   const threshold = schemeConfig.eligibilityThreshold || 6;
   const progressPct = Math.min((paidMonths / threshold) * 100, 100);
 
+  const paidSet = new Set(
+    personalContributions.map(c => {
+      const raw = (c.month || "").slice(0, 3);
+      return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+    })
+  );
+  const isConsecutivelyCompliant = TRACKED_MONTHS.every(m => paidSet.has(m));
+
   // Last paid month
   const lastContrib = personalContributions[0];
   const lastPayment = lastContrib ? lastContrib.month : "—";
@@ -187,6 +195,11 @@ export default function StaffOverview({
           </div>
           <div className="flex justify-between mt-2.5">
             <DuesTracker personalContributions={personalContributions} />
+            {!isConsecutivelyCompliant && (
+              <span className="text-[10px] text-red-400 font-bold self-center animate-pulse">
+                ⚠️ Dues Default: Skipped months detected.
+              </span>
+            )}
             <button
               onClick={() => setShowPaymentModal(true)}
               className="btn btn-gold btn-sm shrink-0 self-end font-bold ml-4"
@@ -205,11 +218,11 @@ export default function StaffOverview({
           <div className="stat-label-text">Contributions YTD</div>
           <span className="stat-change up">GH₵{schemeConfig.monthlyContribution}/mo · {paidMonths} paid</span>
         </div>
-        <div className="stat-card green">
-          <div className="stat-icon green-bg"><CheckCircle className="w-5 h-5" /></div>
-          <div className="stat-val">Active</div>
-          <div className="stat-label-text">Membership Status</div>
-          <span className="stat-change up">{paidMonths}/{threshold} months compliant</span>
+        <div className={`stat-card ${isConsecutivelyCompliant ? "green" : "red"}`}>
+          <div className={`stat-icon ${isConsecutivelyCompliant ? "green-bg" : "red-bg"}`}><CheckCircle className="w-5 h-5" /></div>
+          <div className="stat-val">{isConsecutivelyCompliant ? "Compliant" : "Non-Compliant"}</div>
+          <div className="stat-label-text">Membership Standing</div>
+          <span className="stat-change up">{isConsecutivelyCompliant ? "Eligible for benefits" : "Ineligible: Skipped dues"}</span>
         </div>
         <div className="stat-card gold">
           <div className="stat-icon gold-bg"><Landmark className="w-5 h-5" /></div>
