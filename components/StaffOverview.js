@@ -8,7 +8,7 @@ import {
 import { STAFF_QUICK_ACTIONS, STAFF_SERVICES } from "@/lib/navConfig";
 import WelfareNoticeboard from "@/components/WelfareNoticeboard";
 
-// ── Month dues tracker (Jan–Dec dynamic) ───────────────────────────────────────
+// ── Month dues tracker (Jan–Dec dynamic glass beads) ──────────────────────────
 function DuesTracker({ personalContributions, threshold = 6 }) {
   const TRACKED_MONTHS_FULL = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const TRACKED_MONTHS = TRACKED_MONTHS_FULL.slice(0, Math.min(Math.max(threshold, 1), 12));
@@ -21,19 +21,22 @@ function DuesTracker({ personalContributions, threshold = 6 }) {
   );
 
   return (
-    <div className="flex items-center gap-1.5 flex-wrap">
+    <div className="flex items-center gap-2 flex-wrap">
       {TRACKED_MONTHS.map((m) => {
         const paid = paidSet.has(m);
         return (
-          <div key={m} className="flex flex-col items-center gap-1">
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold transition-all ${
-              paid
-                ? "bg-green text-white shadow-sm"
-                : "bg-slate-100 text-slate-400 border border-slate-200"
-            }`}>
-              {paid ? "✓" : "✗"}
+          <div key={m} className="flex flex-col items-center">
+            <div 
+              title={paid ? `${m} Paid` : `${m} Unpaid`}
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold transition-all duration-300 shadow-sm border ${
+                paid
+                  ? "bg-emerald-500 border-emerald-400/30 text-white shadow-emerald-500/20"
+                  : "bg-white/5 border-white/10 text-white/30"
+              }`}
+            >
+              {paid ? "✓" : "•"}
             </div>
-            <span className={`text-[9px] font-bold ${paid ? "text-green" : "text-slate-400"}`}>{m}</span>
+            <span className={`text-[9px] font-semibold mt-1 transition-colors ${paid ? "text-emerald-400 font-bold" : "text-white/40"}`}>{m}</span>
           </div>
         );
       })}
@@ -158,19 +161,19 @@ export default function StaffOverview({
             </div>
           </div>
 
-          {/* Key financials strip */}
-          <div className="flex sm:flex-col gap-4 sm:gap-2 shrink-0 sm:text-right text-left w-full sm:w-auto">
-            <div>
-              <span className="text-[9px] font-bold text-white/40 uppercase tracking-wider block">Last Payment</span>
-              <span className="text-sm font-bold text-white">{lastPayment}</span>
+          {/* Key financials strip - Premium Glass cards */}
+          <div className="grid grid-cols-3 gap-3 w-full sm:w-auto shrink-0 mt-4 sm:mt-0">
+            <div className="bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-center backdrop-blur-md shadow-sm">
+              <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider block mb-0.5">Last Paid</span>
+              <span className="text-xs font-bold text-white block truncate">{lastPayment}</span>
             </div>
-            <div>
-              <span className="text-[9px] font-bold text-white/40 uppercase tracking-wider block">Next Due</span>
-              <span className="text-sm font-bold text-gold">{nextDue}</span>
+            <div className="bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-center backdrop-blur-md shadow-sm">
+              <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider block mb-0.5">Next Due</span>
+              <span className="text-xs font-bold text-amber-400 block truncate">{nextDue}</span>
             </div>
-            <div>
-              <span className="text-[9px] font-bold text-white/40 uppercase tracking-wider block">Outstanding</span>
-              <span className={`text-sm font-bold ${outstanding > 0 ? "text-red-400" : "text-[#2ecc71]"}`}>
+            <div className="bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-center backdrop-blur-md shadow-sm">
+              <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider block mb-0.5">Outstanding</span>
+              <span className={`text-xs font-bold block truncate ${outstanding > 0 ? "text-rose-400" : "text-emerald-400"}`}>
                 {outstanding > 0 ? `GH₵${outstanding}` : "Clear"}
               </span>
             </div>
@@ -185,33 +188,41 @@ export default function StaffOverview({
               GH₵{ytdTotal.toFixed(0)} / GH₵{(threshold * schemeConfig.monthlyContribution).toFixed(0)}
             </span>
           </div>
-          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+          <div className="h-2.5 bg-white/10 rounded-full overflow-hidden shadow-inner">
             <div
-              className="h-full rounded-full transition-all duration-700"
+              className="h-full rounded-full transition-all duration-700 shadow-sm"
               style={{
                 width: `${progressPct}%`,
                 background: progressPct >= 100
-                  ? "linear-gradient(90deg,#1a7a4a,#2ecc71)"
-                  : "linear-gradient(90deg,#1565c0,#3b82f6)"
+                  ? "linear-gradient(90deg,#10b981,#34d399)"
+                  : "linear-gradient(90deg,#3b82f6,#60a5fa)"
               }}
             />
           </div>
-          <div className="flex justify-between mt-2.5">
-            <DuesTracker personalContributions={personalContributions} threshold={threshold} />
-            {!isConsecutivelyCompliant && (
-              <span className="text-[10px] text-red-400 font-bold self-center animate-pulse">
-                ⚠️ Dues Default: Skipped months detected.
-              </span>
-            )}
+
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <DuesTracker personalContributions={personalContributions} threshold={threshold} />
+              
+              {/* Conditional Compliance Status Indicator */}
+              {!isConsecutivelyCompliant && paidMonths > 0 && (
+                <div className="inline-flex items-center gap-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-bold px-2.5 py-1 rounded-lg tracking-wide uppercase animate-pulse">
+                  <span>⚠️ Skipped months detected</span>
+                </div>
+              )}
+            </div>
+
             {!isConsecutivelyCompliant ? (
               <button
                 onClick={() => setShowPaymentModal(true)}
-                className="btn btn-gold btn-sm shrink-0 self-end font-bold ml-4"
+                className="btn btn-gold btn-md font-bold shadow-lg shadow-gold/10 hover:shadow-gold/25 transition-all self-start md:self-end flex items-center gap-2"
               >
-                <CreditCard className="w-3.5 h-3.5" /> Pay Dues
+                <CreditCard className="w-4 h-4" /> Pay Dues
               </button>
             ) : (
-              <span className="badge badge-green self-end py-1.5 px-3 font-bold text-[11px]">✓ Dues Up-to-Date</span>
+              <div className="inline-flex items-center gap-1.5 bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-xs font-bold px-3.5 py-2 rounded-xl uppercase tracking-wider self-start md:self-end">
+                <CheckCircle className="w-4 h-4" /> Dues Up-to-Date
+              </div>
             )}
           </div>
         </div>
