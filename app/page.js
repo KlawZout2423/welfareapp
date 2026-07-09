@@ -146,14 +146,80 @@ export default function WelfarePortal() {
   const [auditLogs, setAuditLogs] = useState([]);
   const [reportsList, setReportsList] = useState([]);
 
-  // Fetch all state tables on mount
+  // Fetch all state tables on mount and restore session if valid
   useEffect(() => {
-    fetchPortalData();
+    const restoreSession = async () => {
+      try {
+        const res = await fetch("/api/portal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "checkSession" })
+        });
+        const data = await res.json();
+        if (res.ok && data.authenticated) {
+          const { user } = data;
+          if (user.role === "admin") {
+            setUserRole("admin");
+            setUserProfile({
+              name: user.name,
+              id: user.id,
+              email: user.email,
+              role: "Administrator",
+              avatarInitials: user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase(),
+              roleLabel: "Scheme Manager",
+              department: user.dept || "Administration Secretariat",
+              enrolledDate: "January 15, 2018"
+            });
+            setActiveTab("dashboard");
+            setCurrentView("dashboard");
+          } else if (user.role === "auditor") {
+            setUserRole("auditor");
+            setUserProfile({
+              name: user.name,
+              id: user.id,
+              email: user.email,
+              role: "Audit Executive",
+              avatarInitials: user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase(),
+              roleLabel: "System Auditor",
+              department: user.dept || "Internal Audit Directorate",
+              enrolledDate: "November 01, 2021"
+            });
+            setActiveTab("dashboard");
+            setCurrentView("dashboard");
+          } else {
+            setUserRole("staff");
+            setUserProfile({
+              name: user.name,
+              id: user.id,
+              email: user.email,
+              role: "TUTAG Member",
+              avatarInitials: user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase(),
+              roleLabel: "Staff Member",
+              department: user.dept || "Computer Science Department",
+              enrolledDate: "October 12, 2019"
+            });
+            setActiveTab("overview");
+            setCurrentView("dashboard");
+          }
+          // Fetch database tables once profile matches
+          setTimeout(() => {
+            fetchPortalData();
+          }, 100);
+        }
+      } catch (err) {
+        console.error("Session restore failed:", err);
+      }
+    };
+    restoreSession();
   }, []);
 
   const fetchPortalData = async () => {
     try {
       const res = await fetch("/api/portal");
+      if (res.status === 401) {
+        // Not authenticated
+        return;
+      }
       const data = await res.json();
       if (data.error) {
         console.error("Error loading live portal state:", data.error);
@@ -368,18 +434,16 @@ export default function WelfarePortal() {
       return;
     }
 
-    const claimId = `CLM-2026-${Math.floor(42 + Math.random() * 200)}`;
     const targetMember = userRole === "staff" ? userProfile : (members.find(m => m.id === newClaim.memberId) || userProfile);
 
     try {
-      console.log("Submitting claim to database...", { claimId, targetMember, newClaim });
+      console.log("Submitting claim to database...", { targetMember, newClaim });
       const res = await fetch("/api/portal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "submitClaim",
           payload: {
-            id: claimId,
             applicant: targetMember.name,
             index: targetMember.id,
             type: newClaim.type || "Critical Illness",
@@ -390,9 +454,9 @@ export default function WelfarePortal() {
         })
       });
 
+      const data = await res.json();
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Failed server request");
+        throw new Error(data.error || "Failed server request");
       }
 
       setNewClaim({ memberId: "", type: "Critical Illness", title: "", amount: "", description: "" });
@@ -401,35 +465,61 @@ export default function WelfarePortal() {
       fetchPortalData();
     } catch (err) {
       console.error("Claim Submission Error:", err);
-      showToastMsg("Error submitting claim: " + err.message, "error");
+      showToastMsg("Failed to submit claim. Please try again or contact the Welfare Secretariat.", "error");
     }
   };
 
-  // Staff makes MoMo contribution directly
-  const handleStaffContributeDues = async () => {
+  // Staff makes MoMo contribution directly via Paystack
+  const handleStaffContributeDues = () => {
     const month = "July 2026";
     const amount = schemeConfig.monthlyContribution;
 
+    if (typeof window === "undefined" || !window.PaystackPop) {
+      showToastMsg("Payment gateway is loading. Please try again in a moment.", "error");
+      return;
+    }
+
     try {
-      await fetch("/api/portal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "recordPayment",
-          payload: {
-            memberId: userProfile.id,
-            month,
-            amount,
-            method: "Mobile Money",
-            memberName: userProfile.name
+      const paystack = new window.PaystackPop();
+      paystack.newTransaction({
+        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
+        email: userProfile.email,
+        amount: Math.round(amount * 100), // in pesewas
+        currency: "GHS",
+        onSuccess: async (transaction) => {
+          try {
+            const res = await fetch("/api/portal", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "verifyDuesPayment",
+                payload: {
+                  reference: transaction.reference,
+                  memberId: userProfile.id,
+                  month,
+                  amount,
+                  memberName: userProfile.name
+                }
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              showToastMsg(data.error || "Payment verification failed.", "error");
+            } else {
+              setShowPaymentModal(false);
+              showToastMsg(`Welfare dues paid and verified successfully!`);
+              fetchPortalData();
+            }
+          } catch (err) {
+            showToastMsg("Connection error verifying transaction.", "error");
           }
-        })
+        },
+        onCancel: () => {
+          showToastMsg("Transaction was cancelled.", "error");
+        }
       });
-      setShowPaymentModal(false);
-      showToastMsg(`Dues contribution for ${month} paid successfully!`);
-      fetchPortalData();
     } catch (err) {
-      showToastMsg("Error paying dues.", "error");
+      showToastMsg("Payment gateway checkout could not be initialized. Please check your connection.", "error");
     }
   };
 
@@ -438,20 +528,18 @@ export default function WelfarePortal() {
     e.preventDefault();
     if (!newLoan.amount) return;
 
-    const loanId = `LN-2026-${loans.length + 10}`;
     const termMonths = parseInt(newLoan.term, 10); // safely extracts leading number from "3 months"
     const monthlyInstallment = termMonths > 0
       ? Math.ceil(parseFloat(newLoan.amount) / termMonths)
       : parseFloat(newLoan.amount);
 
     try {
-      await fetch("/api/portal", {
+      const res = await fetch("/api/portal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "submitLoan",
           payload: {
-            id: loanId,
             applicant: userProfile.name,
             index: userProfile.id,
             amount: newLoan.amount,
@@ -461,6 +549,11 @@ export default function WelfarePortal() {
           }
         })
       });
+      const data = await res.json();
+      if (!res.ok) {
+        showToastMsg(data.error || "Failed to submit loan application.", "error");
+        return;
+      }
       setNewLoan({ amount: "", term: "3 months", reason: "" });
       setShowLoanModal(false);
       showToastMsg("Loan application submitted successfully!");
@@ -470,28 +563,83 @@ export default function WelfarePortal() {
     }
   };
 
-  // Settle Loan Installment (Staff Member)
+  // Settle Loan Installment (Staff Member uses Paystack, Admin logs directly)
   const handleSettleInstallment = async (loanId) => {
     const loan = loans.find(l => l.id === loanId);
     if (!loan) return;
 
-    try {
-      await fetch("/api/portal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "settleInstallment",
-          payload: {
-            loanId,
-            paymentAmount: loan.monthlyInstallment,
-            userProfileName: userProfile.name
+    const paymentAmount = loan.monthlyInstallment;
+
+    if (userRole === "staff") {
+      if (typeof window === "undefined" || !window.PaystackPop) {
+        showToastMsg("Payment gateway is loading. Please try again in a moment.", "error");
+        return;
+      }
+
+      try {
+        const paystack = new window.PaystackPop();
+        paystack.newTransaction({
+          key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
+          email: userProfile.email,
+          amount: Math.round(paymentAmount * 100),
+          currency: "GHS",
+          onSuccess: async (transaction) => {
+            try {
+              const res = await fetch("/api/portal", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  action: "verifyLoanPayment",
+                  payload: {
+                    reference: transaction.reference,
+                    loanId,
+                    paymentAmount,
+                    userProfileName: userProfile.name
+                  }
+                })
+              });
+              const data = await res.json();
+              if (!res.ok) {
+                showToastMsg(data.error || "Loan payment verification failed.", "error");
+              } else {
+                showToastMsg(`Installment of GH₵${paymentAmount}.00 settled and verified successfully!`);
+                fetchPortalData();
+              }
+            } catch (err) {
+              showToastMsg("Connection error verifying transaction.", "error");
+            }
+          },
+          onCancel: () => {
+            showToastMsg("Transaction was cancelled.", "error");
           }
-        })
-      });
-      showToastMsg(`Settled GH₵${loan.monthlyInstallment}.00 installment for ${loanId}`);
-      fetchPortalData();
-    } catch (err) {
-      showToastMsg("Error settling installment.", "error");
+        });
+      } catch (err) {
+        showToastMsg("Payment gateway checkout could not be initialized. Please check your connection.", "error");
+      }
+    } else {
+      try {
+        const res = await fetch("/api/portal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "settleInstallment",
+            payload: {
+              loanId,
+              paymentAmount,
+              userProfileName: userProfile.name
+            }
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showToastMsg(data.error || "Error settling installment.", "error");
+          return;
+        }
+        showToastMsg(`Settled GH₵${paymentAmount}.00 installment for ${loanId}`);
+        fetchPortalData();
+      } catch (err) {
+        showToastMsg("Error settling installment.", "error");
+      }
     }
   };
 
@@ -501,7 +649,7 @@ export default function WelfarePortal() {
     if (!claim) return;
 
     try {
-      await fetch("/api/portal", {
+      const res = await fetch("/api/portal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -513,6 +661,11 @@ export default function WelfarePortal() {
           }
         })
       });
+      const data = await res.json();
+      if (!res.ok) {
+        showToastMsg(data.error || "Error approving claim.", "error");
+        return;
+      }
       showToastMsg(`Claim ${claimId} approved!`);
       fetchPortalData();
     } catch (err) {
@@ -544,7 +697,7 @@ export default function WelfarePortal() {
   // Admin approves loan
   const handleApproveLoan = async (loanId) => {
     try {
-      await fetch("/api/portal", {
+      const res = await fetch("/api/portal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -555,6 +708,11 @@ export default function WelfarePortal() {
           }
         })
       });
+      const data = await res.json();
+      if (!res.ok) {
+        showToastMsg(data.error || "Error approving loan.", "error");
+        return;
+      }
       showToastMsg(`Loan ${loanId} Approved!`);
       fetchPortalData();
     } catch (err) {
@@ -602,6 +760,44 @@ export default function WelfarePortal() {
       fetchPortalData();
     } catch (err) {
       showToastMsg("Error generating report.", "error");
+    }
+  };
+
+  const handleUpdatePrivileges = async (memberId, role, status) => {
+    try {
+      const res = await fetch("/api/portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "updateMemberPrivileges",
+          payload: { memberId, role, status }
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToastMsg(data.error || "Failed to update privileges.", "error");
+        return { error: data.error };
+      }
+      showToastMsg("Privileges updated successfully.");
+      fetchPortalData();
+      return { success: true };
+    } catch (err) {
+      showToastMsg("Error updating privileges.", "error");
+      return { error: "Network error. Please try again." };
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "logout" })
+      });
+      setCurrentView("login");
+      showToastMsg("Logged out successfully.");
+    } catch (err) {
+      showToastMsg("Logout failed.", "error");
     }
   };
 
@@ -692,6 +888,7 @@ export default function WelfarePortal() {
             loans={loans}
             claims={claims}
             members={members}
+            onLogout={handleLogout}
           />
 
           <div className="main flex flex-col min-h-screen">
@@ -747,6 +944,7 @@ export default function WelfarePortal() {
                   members={members}
                   userRole={userRole}
                   setShowMemberModal={setShowMemberModal}
+                  onUpdatePrivileges={handleUpdatePrivileges}
                 />
               )}
 

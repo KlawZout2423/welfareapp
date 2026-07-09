@@ -9,7 +9,30 @@ function hashPassword(password) {
   return `pbkdf2:${salt}:${hash}`;
 }
 
+// ── GET is no longer allowed — prevents accidental data wipe ──────────────────
 export async function GET() {
+  return NextResponse.json(
+    {
+      success: false,
+      error: "Database setup requires a POST request with the x-setup-key header. GET requests are not allowed to prevent accidental data loss."
+    },
+    { status: 405 }
+  );
+}
+
+// ── POST — protected database reset and seed ──────────────────────────────────
+export async function POST(request) {
+  // Verify setup secret
+  const setupKey = request.headers.get("x-setup-key");
+  const expectedKey = process.env.SETUP_SECRET;
+
+  if (!expectedKey || setupKey !== expectedKey) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized. Provide a valid x-setup-key header." },
+      { status: 403 }
+    );
+  }
+
   try {
     // 1. Drop Tables in correct dependency order
     await query(`DROP TABLE IF EXISTS dues_ledger CASCADE;`);
@@ -199,6 +222,6 @@ export async function GET() {
     });
   } catch (err) {
     console.error("DDL / Seeding Error:", err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Database setup failed. Please contact the administrator or verify configuration." }, { status: 500 });
   }
 }

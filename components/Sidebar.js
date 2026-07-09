@@ -11,7 +11,7 @@ const HTULogo = ({ className = "w-11 h-12" }) => (
 export default function Sidebar({
   userRole, userProfile, activeTab, setActiveTab,
   setCurrentView, setIsMobileMenuOpen, isMobileMenuOpen,
-  loans, claims, members
+  loans, claims, members, onLogout
 }) {
   const navigate = (tab) => {
     setActiveTab(tab);
@@ -102,7 +102,7 @@ export default function Sidebar({
             </div>
             <div className="user-role">{userProfile.roleLabel}</div>
           </div>
-          <button onClick={() => setCurrentView("login")} className="logout-btn ml-2" title="Logout">
+          <button onClick={onLogout || (() => setCurrentView("login"))} className="logout-btn ml-2" title="Logout">
             <LogOut className="h-4 w-4" />
           </button>
         </div>

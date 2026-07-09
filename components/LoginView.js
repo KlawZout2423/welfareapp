@@ -155,16 +155,8 @@ export default function LoginView({ onLogin }) {
               </div>
             </div>
 
-            {/* Remember + Forgot */}
-            <div className="flex justify-between items-center">
-              <label className="remember-wrap">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                />
-                <span className="text-sm text-navy">Remember session</span>
-              </label>
+            {/* Forgot Password */}
+            <div className="flex justify-end items-center">
               <a
                 href="#"
                 className="forgot-link text-sm"

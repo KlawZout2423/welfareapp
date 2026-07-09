@@ -1,4 +1,5 @@
 import { EB_Garamond, DM_Sans } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const ebGaramond = EB_Garamond({
@@ -24,7 +25,10 @@ export default function RootLayout({ children }) {
       lang="en"
       className={`${ebGaramond.variable} ${dmSans.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">{children}</body>
+      <body className="min-h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
+        {children}
+        <Script src="https://js.paystack.co/v2/inline.js" strategy="afterInteractive" />
+      </body>
     </html>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Check, Info, ShieldCheck } from "lucide-react";
 
 // --- SMS Broadcast Panel ---
@@ -158,6 +159,55 @@ export function ReportsPanel({ userRole, reportsList, setShowReportModal, handle
 
 // --- Settings Panel ---
 export function SettingsPanel({ userRole, userProfile, schemeConfig, setSchemeConfig, members, showToastMsg }) {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isUpdatingPw, setIsUpdatingPw] = useState(false);
+  const [pwSuccessMsg, setPwSuccessMsg] = useState("");
+  const [pwErrorMsg, setPwErrorMsg] = useState("");
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    setPwSuccessMsg("");
+    setPwErrorMsg("");
+    if (newPassword !== confirmPassword) {
+      setPwErrorMsg("New passwords do not match.");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPwErrorMsg("New password must be at least 6 characters.");
+      return;
+    }
+    setIsUpdatingPw(true);
+    try {
+      const res = await fetch("/api/portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "changePassword",
+          payload: {
+            email: userProfile.email,
+            currentPassword,
+            newPassword
+          }
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setPwErrorMsg(data.error || "Failed to update password.");
+      } else {
+        setPwSuccessMsg("Password updated successfully.");
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      }
+    } catch (err) {
+      setPwErrorMsg("Network error. Please try again.");
+    } finally {
+      setIsUpdatingPw(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="section-header">
@@ -272,6 +322,40 @@ export function SettingsPanel({ userRole, userProfile, schemeConfig, setSchemeCo
           </div>
         </div>
       )}
+
+      {/* CHANGE PASSWORD CARD FOR ALL USERS */}
+      <div className="card max-w-2xl mx-auto">
+        <div className="card-header"><div className="card-title font-semibold text-navy">Update System Password</div></div>
+        <form onSubmit={handlePasswordChange} className="card-body space-y-4">
+          {pwSuccessMsg && (
+            <div className="bg-green-50 text-green-700 text-xs font-semibold p-2.5 rounded-lg border border-green-200">
+              {pwSuccessMsg}
+            </div>
+          )}
+          {pwErrorMsg && (
+            <div className="bg-red-50 text-red-600 text-xs font-semibold p-2.5 rounded-lg border border-red-200">
+              {pwErrorMsg}
+            </div>
+          )}
+          <div className="form-field">
+            <label>Current Password</label>
+            <input type="password" required value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="••••••••" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="form-field">
+              <label>New Password</label>
+              <input type="password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" />
+            </div>
+            <div className="form-field">
+              <label>Confirm New Password</label>
+              <input type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" />
+            </div>
+          </div>
+          <button type="submit" className="btn btn-primary" disabled={isUpdatingPw}>
+            {isUpdatingPw ? "Updating..." : "Update Password"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

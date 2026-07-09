@@ -54,7 +54,7 @@ export default function LandingPage({ onEnterPortal }) {
           </h2>
 
           <p className="text-sm md:text-base text-white/70 max-w-2xl mx-auto leading-relaxed">
-            The official welfare portal of Ho Technical University, Accra-Keta Highway, Ho. 
+            The official welfare portal of Ho Technical University, Ho, Volta Region, Ghana. 
             Providing financial assistance, medical scheme claims, and zero-interest loans.
           </p>
 
@@ -272,7 +272,7 @@ export default function LandingPage({ onEnterPortal }) {
           
           <div className="space-y-1">
             <p>&copy; 2026 HTU Staff Welfare Scheme. All rights reserved.</p>
-            <p className="text-[10px] text-white/30">Accra-Keta Highway, Ho, Volta Region, Ghana. Registered Administration System.</p>
+            <p className="text-[10px] text-white/30">Ho, Volta Region, Ghana. Registered Administration System.</p>
           </div>
         </div>
       </footer>
