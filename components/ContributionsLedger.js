@@ -6,6 +6,18 @@ export default function ContributionsLedger({
   userRole, members, contributions, personalContributions,
   fundStats, schemeConfig, setShowPaymentModal
 }) {
+  const TRACKED_MONTHS_FULL = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const threshold = schemeConfig.eligibilityThreshold || 6;
+  const TRACKED_MONTHS = TRACKED_MONTHS_FULL.slice(0, Math.min(Math.max(threshold, 1), 12));
+
+  const paidSet = new Set(
+    (personalContributions || []).map(c => {
+      const raw = (c.month || "").split(" ")[0].toLowerCase().slice(0, 3);
+      return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+    })
+  );
+  const isConsecutivelyCompliant = TRACKED_MONTHS.every(m => paidSet.has(m));
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="section-header">
@@ -14,9 +26,13 @@ export default function ContributionsLedger({
           <p>{userRole === "staff" ? "Track your monthly welfare dues contributions." : "Track and manage monthly member contributions."}</p>
         </div>
         {userRole === "staff" && (
-          <button className="btn btn-primary" onClick={() => setShowPaymentModal(true)}>
-            <Plus className="w-4 h-4" /> Contribute Monthly Dues
-          </button>
+          !isConsecutivelyCompliant ? (
+            <button className="btn btn-primary" onClick={() => setShowPaymentModal(true)}>
+              <Plus className="w-4 h-4" /> Contribute Monthly Dues
+            </button>
+          ) : (
+            <span className="badge badge-green py-2 px-3 font-bold text-xs">✓ Dues Up-to-Date</span>
+          )
         )}
         {userRole === "admin" && (
           <div style={{ display: "flex", gap: "10px" }}>

@@ -78,6 +78,15 @@ function getMonthColumn(monthStr) {
   return null;
 }
 
+// ── Get required months list based on the dynamic eligibility threshold ──────
+function getRequiredMonths(threshold) {
+  const allMonths = [
+    "January 2026", "February 2026", "March 2026", "April 2026", "May 2026", "June 2026",
+    "July 2026", "August 2026", "September 2026", "October 2026", "November 2026", "December 2026"
+  ];
+  return allMonths.slice(0, Math.min(Math.max(threshold, 1), 12));
+}
+
 // ── Paystack Verification Helper ──────────────────────────────────────────────
 async function verifyPaystackPayment(reference, amount) {
   try {
@@ -130,21 +139,23 @@ export async function GET(request) {
     const auditLogsRes = await query("SELECT * FROM audit_logs ORDER BY id DESC;");
     const reportsRes = await query("SELECT * FROM reports ORDER BY id DESC;");
 
-    // Compute fund metrics — includes loan impact
-    const collectionsSum = await query("SELECT COALESCE(SUM(amount), 0) as total FROM contributions;");
+    // Compute fund metrics — includes loan impact (corrected double-entry accounting)
+    const collectionsSum = await query("SELECT COALESCE(SUM(amount), 0) as total FROM contributions WHERE status = 'success';");
     const disbursedSum = await query("SELECT COALESCE(SUM(amount), 0) as total FROM claims WHERE status = 'Approved';");
+    const loansDisbursedSum = await query("SELECT COALESCE(SUM(amount), 0) as total FROM loans WHERE status IN ('Active', 'Repaid');");
     const activeLoansSum = await query("SELECT COALESCE(SUM(amount - repaid), 0) as total FROM loans WHERE status = 'Active';");
     const loanRepaymentsSum = await query("SELECT COALESCE(SUM(repaid), 0) as total FROM loans;");
-    const juneCollectionsSum = await query("SELECT COALESCE(SUM(amount), 0) as total FROM contributions WHERE month = 'June 2026';");
+    const juneCollectionsSum = await query("SELECT COALESCE(SUM(amount), 0) as total FROM contributions WHERE month = 'June 2026' AND status = 'success';");
 
     const totalCollected = parseFloat(collectionsSum.rows[0].total);
     const totalDisbursed = parseFloat(disbursedSum.rows[0].total);
+    const totalLent = parseFloat(loansDisbursedSum.rows[0].total);
     const activeLoans = parseFloat(activeLoansSum.rows[0].total);
     const totalRepayments = parseFloat(loanRepaymentsSum.rows[0].total);
     const juneCollections = parseFloat(juneCollectionsSum.rows[0].total);
 
-    // Corrected fund balance: contributions - claims disbursed - active loan balance + repayments
-    const totalFund = totalCollected - totalDisbursed - activeLoans + totalRepayments;
+    // Corrected double-entry balance: collected + repayments - disbursed - totalLent
+    const totalFund = totalCollected + totalRepayments - totalDisbursed - totalLent;
 
     const fundStats = {
       totalFund,
@@ -514,6 +525,20 @@ export async function POST(request) {
         return NextResponse.json({ success: false, error: "Auditors cannot verify payments." }, { status: 403 });
       }
 
+      const column = getMonthColumn(month);
+      if (!column) {
+        return NextResponse.json({ success: false, error: "Invalid contribution month specified." }, { status: 400 });
+      }
+
+      // Check if already paid
+      const checkPaid = await query(
+        `SELECT ${column} FROM dues_ledger WHERE id = $1`,
+        [memberId]
+      );
+      if (checkPaid.rows.length > 0 && checkPaid.rows[0][column] === true) {
+        return NextResponse.json({ success: false, error: `Dues for ${month} have already been recorded as paid.` }, { status: 400 });
+      }
+
       // Verify the payment on Paystack
       const verifyRes = await verifyPaystackPayment(reference, amount);
       if (!verifyRes.success) {
@@ -600,20 +625,22 @@ export async function POST(request) {
         return NextResponse.json({ success: false, error: "You can only submit claims for yourself." }, { status: 403 });
       }
 
-      // Enforce 6 consecutive months dues compliance check
-      const ledgerCheck = await query(
-        `SELECT jan, feb, mar, apr, may, jun FROM dues_ledger WHERE id = $1`,
+      // Enforce dynamic consecutive months dues compliance check
+      const configRes = await query("SELECT eligibility_threshold FROM scheme_config LIMIT 1");
+      const threshold = configRes.rows.length > 0 ? parseInt(configRes.rows[0].eligibility_threshold, 10) : 6;
+      const requiredMonths = getRequiredMonths(threshold);
+
+      const contributionsFetch = await query(
+        `SELECT month FROM contributions WHERE member_id = $1 AND status = 'success'`,
         [index]
       );
-      if (ledgerCheck.rows.length === 0) {
-        return NextResponse.json({ success: false, error: "Dues ledger record not found for this member." }, { status: 400 });
-      }
-      const ledger = ledgerCheck.rows[0];
-      const isCompliant = ledger.jan && ledger.feb && ledger.mar && ledger.apr && ledger.may && ledger.jun;
-      if (!isCompliant) {
+      const paidMonthsSet = new Set(contributionsFetch.rows.map(r => r.month));
+      const missingMonths = requiredMonths.filter(m => !paidMonthsSet.has(m));
+
+      if (missingMonths.length > 0) {
         return NextResponse.json({
           success: false,
-          error: "Ineligibility Default: Members must have paid all 6 consecutive months (Jan–Jun) to submit a benefit claim."
+          error: `Ineligibility Default: Members must have paid all consecutive contributions. Missing months: ${missingMonths.join(", ")}`
         }, { status: 400 });
       }
 
@@ -654,20 +681,35 @@ export async function POST(request) {
         return NextResponse.json({ success: false, error: "You can only request loans for yourself." }, { status: 403 });
       }
 
-      // Enforce 6 consecutive months dues compliance check
-      const ledgerCheck = await query(
-        `SELECT jan, feb, mar, apr, may, jun FROM dues_ledger WHERE id = $1`,
+      // Check if they already have an outstanding or pending loan
+      const activeLoanCheck = await query(
+        `SELECT id, status FROM loans WHERE index_id = $1 AND status IN ('Active', 'Pending')`,
         [index]
       );
-      if (ledgerCheck.rows.length === 0) {
-        return NextResponse.json({ success: false, error: "Dues ledger record not found for this member." }, { status: 400 });
-      }
-      const ledger = ledgerCheck.rows[0];
-      const isCompliant = ledger.jan && ledger.feb && ledger.mar && ledger.apr && ledger.may && ledger.jun;
-      if (!isCompliant) {
+      if (activeLoanCheck.rows.length > 0) {
+        const statusType = activeLoanCheck.rows[0].status;
         return NextResponse.json({
           success: false,
-          error: "Ineligibility Default: Members must have paid all 6 consecutive months (Jan–Jun) to submit an emergency loan request."
+          error: `Ineligibility: You already have a ${statusType.toLowerCase()} loan. Please repay your current loan before applying for a new one.`
+        }, { status: 400 });
+      }
+
+      // Enforce dynamic consecutive months dues compliance check
+      const configRes = await query("SELECT eligibility_threshold FROM scheme_config LIMIT 1");
+      const threshold = configRes.rows.length > 0 ? parseInt(configRes.rows[0].eligibility_threshold, 10) : 6;
+      const requiredMonths = getRequiredMonths(threshold);
+
+      const contributionsFetch = await query(
+        `SELECT month FROM contributions WHERE member_id = $1 AND status = 'success'`,
+        [index]
+      );
+      const paidMonthsSet = new Set(contributionsFetch.rows.map(r => r.month));
+      const missingMonths = requiredMonths.filter(m => !paidMonthsSet.has(m));
+
+      if (missingMonths.length > 0) {
+        return NextResponse.json({
+          success: false,
+          error: `Ineligibility Default: Members must have paid all consecutive contributions. Missing months: ${missingMonths.join(", ")}`
         }, { status: 400 });
       }
 
@@ -839,13 +881,13 @@ export async function POST(request) {
         return NextResponse.json({ success: false, error: "This claim has already been processed." }, { status: 400 });
       }
 
-      // Check sufficient funds
-      const fundCheck = await query("SELECT COALESCE(SUM(amount), 0) as collected FROM contributions;");
+      // Check sufficient funds (corrected double-entry accounting)
+      const fundCheck = await query("SELECT COALESCE(SUM(amount), 0) as collected FROM contributions WHERE status = 'success';");
       const disbursedCheck = await query("SELECT COALESCE(SUM(amount), 0) as disbursed FROM claims WHERE status = 'Approved';");
-      const loansCheck = await query("SELECT COALESCE(SUM(amount - repaid), 0) as outstanding FROM loans WHERE status = 'Active';");
-      const repaymentsCheck = await query("SELECT COALESCE(SUM(repaid), 0) as repaid FROM loans;");
+      const loansDisbursedCheck = await query("SELECT COALESCE(SUM(amount), 0) as total_lent FROM loans WHERE status IN ('Active', 'Repaid');");
+      const repaymentsCheck = await query("SELECT COALESCE(SUM(repaid), 0) as total_repaid FROM loans;");
 
-      const availableFund = parseFloat(fundCheck.rows[0].collected) - parseFloat(disbursedCheck.rows[0].disbursed) - parseFloat(loansCheck.rows[0].outstanding) + parseFloat(repaymentsCheck.rows[0].repaid);
+      const availableFund = parseFloat(fundCheck.rows[0].collected) + parseFloat(repaymentsCheck.rows[0].total_repaid) - parseFloat(disbursedCheck.rows[0].disbursed) - parseFloat(loansDisbursedCheck.rows[0].total_lent);
 
       if (parsedAmount > availableFund) {
         return NextResponse.json({ success: false, error: `Insufficient funds. Available: GH₵${availableFund.toFixed(2)}, Requested: GH₵${parsedAmount.toFixed(2)}` }, { status: 400 });
@@ -920,14 +962,14 @@ export async function POST(request) {
         return NextResponse.json({ success: false, error: "This loan has already been processed." }, { status: 400 });
       }
 
-      // Check sufficient funds
+      // Check sufficient funds (corrected double-entry accounting)
       const loanAmount = parseFloat(loanFetch.rows[0].amount);
-      const fundCheck = await query("SELECT COALESCE(SUM(amount), 0) as collected FROM contributions;");
+      const fundCheck = await query("SELECT COALESCE(SUM(amount), 0) as collected FROM contributions WHERE status = 'success';");
       const disbursedCheck = await query("SELECT COALESCE(SUM(amount), 0) as disbursed FROM claims WHERE status = 'Approved';");
-      const loansCheck = await query("SELECT COALESCE(SUM(amount - repaid), 0) as outstanding FROM loans WHERE status = 'Active';");
-      const repaymentsCheck = await query("SELECT COALESCE(SUM(repaid), 0) as repaid FROM loans;");
+      const loansDisbursedCheck = await query("SELECT COALESCE(SUM(amount), 0) as total_lent FROM loans WHERE status IN ('Active', 'Repaid');");
+      const repaymentsCheck = await query("SELECT COALESCE(SUM(repaid), 0) as total_repaid FROM loans;");
 
-      const availableFund = parseFloat(fundCheck.rows[0].collected) - parseFloat(disbursedCheck.rows[0].disbursed) - parseFloat(loansCheck.rows[0].outstanding) + parseFloat(repaymentsCheck.rows[0].repaid);
+      const availableFund = parseFloat(fundCheck.rows[0].collected) + parseFloat(repaymentsCheck.rows[0].total_repaid) - parseFloat(disbursedCheck.rows[0].disbursed) - parseFloat(loansDisbursedCheck.rows[0].total_lent);
 
       if (loanAmount > availableFund) {
         return NextResponse.json({ success: false, error: `Insufficient funds. Available: GH₵${availableFund.toFixed(2)}, Requested: GH₵${loanAmount.toFixed(2)}` }, { status: 400 });

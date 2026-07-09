@@ -8,10 +8,11 @@ import {
 import { STAFF_QUICK_ACTIONS, STAFF_SERVICES } from "@/lib/navConfig";
 import WelfareNoticeboard from "@/components/WelfareNoticeboard";
 
-// ── Month dues tracker (Jan–Jun) ──────────────────────────────────────────────
-const TRACKED_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+// ── Month dues tracker (Jan–Dec dynamic) ───────────────────────────────────────
+function DuesTracker({ personalContributions, threshold = 6 }) {
+  const TRACKED_MONTHS_FULL = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const TRACKED_MONTHS = TRACKED_MONTHS_FULL.slice(0, Math.min(Math.max(threshold, 1), 12));
 
-function DuesTracker({ personalContributions }) {
   const paidSet = new Set(
     personalContributions.map(c => {
       const raw = (c.month || "").slice(0, 3);
@@ -95,6 +96,8 @@ export default function StaffOverview({
       return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
     })
   );
+  const TRACKED_MONTHS_FULL = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const TRACKED_MONTHS = TRACKED_MONTHS_FULL.slice(0, Math.min(Math.max(threshold, 1), 12));
   const isConsecutivelyCompliant = TRACKED_MONTHS.every(m => paidSet.has(m));
 
   // Last paid month
@@ -194,18 +197,22 @@ export default function StaffOverview({
             />
           </div>
           <div className="flex justify-between mt-2.5">
-            <DuesTracker personalContributions={personalContributions} />
+            <DuesTracker personalContributions={personalContributions} threshold={threshold} />
             {!isConsecutivelyCompliant && (
               <span className="text-[10px] text-red-400 font-bold self-center animate-pulse">
                 ⚠️ Dues Default: Skipped months detected.
               </span>
             )}
-            <button
-              onClick={() => setShowPaymentModal(true)}
-              className="btn btn-gold btn-sm shrink-0 self-end font-bold ml-4"
-            >
-              <CreditCard className="w-3.5 h-3.5" /> Pay Dues
-            </button>
+            {!isConsecutivelyCompliant ? (
+              <button
+                onClick={() => setShowPaymentModal(true)}
+                className="btn btn-gold btn-sm shrink-0 self-end font-bold ml-4"
+              >
+                <CreditCard className="w-3.5 h-3.5" /> Pay Dues
+              </button>
+            ) : (
+              <span className="badge badge-green self-end py-1.5 px-3 font-bold text-[11px]">✓ Dues Up-to-Date</span>
+            )}
           </div>
         </div>
       </div>

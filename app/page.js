@@ -37,7 +37,7 @@ export default function WelfarePortal() {
   const [rememberMe, setRememberMe] = useState(true);
   const [showHelpTooltip, setShowHelpTooltip] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   // Dropdown states
   const [isNotifOpen, setIsNotifOpen] = useState(false);
 
@@ -856,7 +856,7 @@ export default function WelfarePortal() {
 
   return (
     <div className="flex-1 flex flex-col font-sans">
-      
+
       {/* Toast Alert */}
       {toast.show && (
         <div className="fixed bottom-6 right-6 z-[300] bg-white/95 border border-gold/40 rounded-xl shadow-2xl p-4 flex items-center gap-3 animate-fade-in transition-all">
@@ -876,7 +876,7 @@ export default function WelfarePortal() {
         <LoginView onLogin={handleAuthentication} />
       ) : (
         <div className="flex-1 flex min-h-screen bg-cream overflow-x-hidden">
-          
+
           <Sidebar
             userRole={userRole}
             userProfile={userProfile}
@@ -907,7 +907,7 @@ export default function WelfarePortal() {
             />
 
             <main className="flex-1 p-8 space-y-6 lg:p-8 md:p-6 p-4">
-              
+
               {/* TAB: STAFF OVERVIEW */}
               {activeTab === "overview" && userRole === "staff" && (
                 <StaffOverview

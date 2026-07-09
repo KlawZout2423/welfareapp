@@ -1,6 +1,7 @@
 "use client";
 
-import { CreditCard } from "lucide-react";
+import { useState, useEffect } from "react";
+import { CreditCard, Sparkles, Plus, AlertCircle, FileText, CheckCircle } from "lucide-react";
 
 // --- MODAL 1: REGISTER MEMBER ---
 export function RegisterMemberModal({
@@ -23,9 +24,9 @@ export function RegisterMemberModal({
             <div className="form-row">
               <div className="form-field">
                 <label>First Name</label>
-                <input 
-                  type="text" 
-                  required 
+                <input
+                  type="text"
+                  required
                   placeholder="e.g. Kwame"
                   value={newMember.firstName}
                   onChange={(e) => setNewMember({ ...newMember, firstName: e.target.value })}
@@ -33,22 +34,22 @@ export function RegisterMemberModal({
               </div>
               <div className="form-field">
                 <label>Last Name</label>
-                <input 
-                  type="text" 
-                  required 
+                <input
+                  type="text"
+                  required
                   placeholder="e.g. Asante"
                   value={newMember.lastName}
                   onChange={(e) => setNewMember({ ...newMember, lastName: e.target.value })}
                 />
               </div>
             </div>
-            
+
             <div className="form-row">
               <div className="form-field">
                 <label>Staff ID</label>
-                <input 
-                  type="text" 
-                  required 
+                <input
+                  type="text"
+                  required
                   placeholder="HTU/0001"
                   value={newMember.staffId}
                   onChange={(e) => setNewMember({ ...newMember, staffId: e.target.value })}
@@ -56,7 +57,7 @@ export function RegisterMemberModal({
               </div>
               <div className="form-field">
                 <label>Staff Union</label>
-                <select 
+                <select
                   value={newMember.union}
                   onChange={(e) => setNewMember({ ...newMember, union: e.target.value })}
                 >
@@ -72,8 +73,8 @@ export function RegisterMemberModal({
             <div className="form-row">
               <div className="form-field">
                 <label>Phone Number</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="024 XXX XXXX"
                   value={newMember.phone}
                   onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
@@ -81,8 +82,8 @@ export function RegisterMemberModal({
               </div>
               <div className="form-field">
                 <label>Email Address</label>
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   placeholder="name@htu.edu.gh"
                   value={newMember.email}
                   onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
@@ -93,7 +94,7 @@ export function RegisterMemberModal({
             <div className="form-row">
               <div className="form-field">
                 <label>Academic Faculty</label>
-                <select 
+                <select
                   value={newMember.department}
                   onChange={(e) => setNewMember({ ...newMember, department: e.target.value })}
                 >
@@ -106,7 +107,7 @@ export function RegisterMemberModal({
               </div>
               <div className="form-field">
                 <label>Date of Employment</label>
-                <input 
+                <input
                   type="date"
                   value={newMember.employmentDate}
                   onChange={(e) => setNewMember({ ...newMember, employmentDate: e.target.value })}
@@ -119,8 +120,8 @@ export function RegisterMemberModal({
               <div className="form-row" style={{ marginBottom: "0" }}>
                 <div className="form-field" style={{ marginBottom: "0" }}>
                   <label>Spouse Name</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder="Optional"
                     value={newMember.spouseName}
                     onChange={(e) => setNewMember({ ...newMember, spouseName: e.target.value })}
@@ -128,8 +129,8 @@ export function RegisterMemberModal({
                 </div>
                 <div className="form-field" style={{ marginBottom: "0" }}>
                   <label>Nominated Guardian</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder="Optional"
                     value={newMember.guardianName}
                     onChange={(e) => setNewMember({ ...newMember, guardianName: e.target.value })}
@@ -139,9 +140,9 @@ export function RegisterMemberModal({
             </div>
 
             <div className="mt-4 flex items-start gap-2.5 bg-slate-50 border border-slate-200 p-3 rounded-lg text-xs">
-              <input 
-                type="checkbox" 
-                required 
+              <input
+                type="checkbox"
+                required
                 id="gdpr-consent"
                 className="mt-0.5 cursor-pointer"
               />
@@ -150,7 +151,7 @@ export function RegisterMemberModal({
               </label>
             </div>
           </div>
-          
+
           <div className="modal-footer">
             <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary">Register Member</button>
@@ -172,9 +173,48 @@ export function ContributeDuesModal({
   newPayment,
   setNewPayment,
   onSubmitAdmin,
-  onSubmitStaff
+  onSubmitStaff,
+  personalContributions = []
 }) {
+  const TRACKED_MONTHS_FULL = [
+    { key: "jan", label: "January 2026" },
+    { key: "feb", label: "February 2026" },
+    { key: "mar", label: "March 2026" },
+    { key: "apr", label: "April 2026" },
+    { key: "may", label: "May 2026" },
+    { key: "jun", label: "June 2026" },
+    { key: "jul", label: "July 2026" },
+    { key: "aug", label: "August 2026" },
+    { key: "sep", label: "September 2026" },
+    { key: "oct", label: "October 2026" },
+    { key: "nov", label: "November 2026" },
+    { key: "dec", label: "December 2026" }
+  ];
+
+  const threshold = schemeConfig.eligibilityThreshold || 6;
+  const activeMonths = TRACKED_MONTHS_FULL.slice(0, Math.min(Math.max(threshold, 1), 12));
+
+  const paidSet = new Set(
+    (personalContributions || []).map(c => {
+      const raw = (c.month || "").split(" ")[0].toLowerCase().slice(0, 3);
+      return raw;
+    })
+  );
+
+  const unpaidMonths = activeMonths.filter(m => !paidSet.has(m.key));
+
+  const [selectedMonth, setSelectedMonth] = useState("");
+
+  useEffect(() => {
+    if (unpaidMonths.length > 0) {
+      setSelectedMonth(unpaidMonths[0].label);
+    } else {
+      setSelectedMonth("");
+    }
+  }, [show, personalContributions]);
+
   if (!show) return null;
+
   return (
     <div className="modal-overlay">
       <div className="modal max-w-sm">
@@ -182,41 +222,95 @@ export function ContributeDuesModal({
           <h3 className="modal-title">{userRole === "staff" ? "Dues Payment Gateway" : "Record Dues Payment"}</h3>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
-        
+
         {userRole === "staff" ? (
           <div className="modal-body text-center space-y-4">
             <div className="w-16 h-16 bg-navy-mid/10 text-navy-deep rounded-full flex items-center justify-center mx-auto">
               <CreditCard className="w-8 h-8" />
             </div>
-            <div>
-              <h4 className="font-semibold text-lg">Pay GH₵ {schemeConfig.monthlyContribution}.00</h4>
-              <p className="text-xs text-text-3 mt-1">Paying welfare dues for the upcoming month (July 2026) to preserve active membership.</p>
-            </div>
 
-            <div className="bg-cream p-4 rounded-xl text-left text-xs font-semibold space-y-2 border border-border/30">
-              <div className="flex justify-between">
-                <span className="text-text-3">Staff Member:</span>
-                <span>{userProfile.name}</span>
+            {unpaidMonths.length === 0 ? (
+              <div className="space-y-4 py-4 text-center">
+                <div className="w-12 h-12 bg-green-50 text-green rounded-full flex items-center justify-center mx-auto border border-green-200">
+                  <CheckCircle className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-bold text-navy text-base">Contributions Up to Date</h4>
+                  <p className="text-xs text-text-3 px-4">All dues for the current year (Jan–Dec) are fully paid! You have no outstanding dues.</p>
+                </div>
               </div>
-              <div className="flex justify-between border-t border-border/50 pt-2">
-                <span className="text-text-3">Welfare ID:</span>
-                <span>{userProfile.id}</span>
-              </div>
-            </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-3 bg-[#e8f0fe] rounded-xl flex items-center gap-3 border border-blue-200/50">
+                  <div className="p-2 rounded-lg bg-white shadow-sm text-blue-600"><CheckCircle className="w-4 h-4" /></div>
+                  <div className="text-left">
+                    <span className="text-[9px] font-bold text-blue-500 uppercase block tracking-wider">Secure Payment Gateway</span>
+                    <span className="text-xs font-semibold text-navy">HTU Welfare Association Fund</span>
+                  </div>
+                </div>
 
-            <button 
-              onClick={onSubmitStaff}
-              className="w-full btn btn-primary py-3 flex justify-center gap-2"
-            >
-              Authorize MoMo Payment
-            </button>
+                <div>
+                  <h4 className="font-semibold text-lg text-navy-deep">Pay GH₵ {schemeConfig.monthlyContribution}.00</h4>
+                  <p className="text-xs text-text-3 mt-1">Select the month you wish to pay dues for below.</p>
+                </div>
+
+                <div className="form-field text-left">
+                  <label className="font-bold text-navy text-xs">Select Contribution Month</label>
+                  <select 
+                    value={selectedMonth} 
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    required
+                    className="border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  >
+                    {unpaidMonths.map((m, idx) => (
+                      <option key={idx} value={m.label}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="bg-cream p-4 rounded-xl text-left text-xs font-semibold space-y-2 border border-border/30">
+                  <div className="flex justify-between">
+                    <span className="text-text-3">Staff Member:</span>
+                    <span className="text-navy">{userProfile.name}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-border/50 pt-2">
+                    <span className="text-text-3">Welfare ID:</span>
+                    <span className="font-bold text-navy">{userProfile.id}</span>
+                  </div>
+                </div>
+
+                <div className="text-center py-1">
+                  <button 
+                    onClick={() => onSubmitStaff(selectedMonth)}
+                    className="w-full btn btn-primary py-3 flex justify-center items-center gap-2 text-white font-bold rounded-xl bg-navy-deep hover:bg-navy transition-all shadow-md"
+                  >
+                    Authorize Paystack Payment
+                  </button>
+                  
+                  {/* PAYSTACK SECURE BADGES */}
+                  <div className="flex items-center justify-center gap-2 mt-3 text-[10px] text-text-3 font-semibold">
+                    <span className="flex items-center gap-1">
+                      🔒 Secured by <strong>paystack</strong>
+                    </span>
+                  </div>
+                  
+                  {/* PAYMENT ICONS */}
+                  <div className="flex justify-center gap-2 mt-2 opacity-50 select-none">
+                    <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded border font-bold">MTN MoMo</span>
+                    <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded border font-bold">Telecel</span>
+                    <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded border font-bold">AT Money</span>
+                    <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded border font-bold">Cards</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <form onSubmit={onSubmitAdmin}>
             <div className="modal-body space-y-4">
               <div className="form-field">
                 <label>Select Member</label>
-                <select 
+                <select
                   value={newPayment.memberId}
                   onChange={(e) => setNewPayment({ ...newPayment, memberId: e.target.value })}
                   required
@@ -230,7 +324,7 @@ export function ContributeDuesModal({
 
               <div className="form-field">
                 <label>Contribution Month</label>
-                <select 
+                <select
                   value={newPayment.month}
                   onChange={(e) => setNewPayment({ ...newPayment, month: e.target.value })}
                 >
@@ -241,9 +335,9 @@ export function ContributeDuesModal({
 
               <div className="form-field">
                 <label>Amount (GH₵)</label>
-                <input 
-                  type="number" 
-                  required 
+                <input
+                  type="number"
+                  required
                   value={newPayment.amount}
                   onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
                 />
@@ -251,7 +345,7 @@ export function ContributeDuesModal({
 
               <div className="form-field">
                 <label>Payment Method</label>
-                <select 
+                <select
                   value={newPayment.method}
                   onChange={(e) => setNewPayment({ ...newPayment, method: e.target.value })}
                 >
@@ -295,7 +389,7 @@ export function FileBenefitClaimModal({
             {userRole !== "staff" && (
               <div className="form-field">
                 <label>Filing Member</label>
-                <select 
+                <select
                   value={newClaim.memberId}
                   onChange={(e) => setNewClaim({ ...newClaim, memberId: e.target.value })}
                   required
@@ -310,7 +404,7 @@ export function FileBenefitClaimModal({
 
             <div className="form-field">
               <label>Benefit Type</label>
-              <select 
+              <select
                 value={newClaim.type}
                 onChange={(e) => setNewClaim({ ...newClaim, type: e.target.value })}
               >
@@ -326,9 +420,9 @@ export function FileBenefitClaimModal({
 
             <div className="form-field">
               <label>Claim Amount (GH₵)</label>
-              <input 
-                type="number" 
-                required 
+              <input
+                type="number"
+                required
                 placeholder="e.g. 3000"
                 value={newClaim.amount}
                 onChange={(e) => setNewClaim({ ...newClaim, amount: e.target.value })}
@@ -337,9 +431,9 @@ export function FileBenefitClaimModal({
 
             <div className="form-field">
               <label>Claim Event Title / Description</label>
-              <textarea 
-                rows="3" 
-                required 
+              <textarea
+                rows="3"
+                required
                 placeholder="Provide brief details about the welfare claim..."
                 value={newClaim.title}
                 onChange={(e) => setNewClaim({ ...newClaim, title: e.target.value })}
@@ -376,9 +470,9 @@ export function RequestEmergencyLoanModal({
           <div className="modal-body space-y-4">
             <div className="form-field">
               <label>Loan Amount Request (GH₵)</label>
-              <input 
-                type="number" 
-                required 
+              <input
+                type="number"
+                required
                 placeholder="e.g. 1000 (Max GH₵1,500)"
                 value={newLoan.amount}
                 onChange={(e) => setNewLoan({ ...newLoan, amount: e.target.value })}
@@ -387,7 +481,7 @@ export function RequestEmergencyLoanModal({
 
             <div className="form-field">
               <label>Repayment Term Limit</label>
-              <select 
+              <select
                 value={newLoan.term}
                 onChange={(e) => setNewLoan({ ...newLoan, term: e.target.value })}
               >
@@ -400,9 +494,9 @@ export function RequestEmergencyLoanModal({
 
             <div className="form-field">
               <label>Urgent Reason for Loan</label>
-              <textarea 
-                rows="3" 
-                required 
+              <textarea
+                rows="3"
+                required
                 placeholder="Briefly describe the emergency need..."
                 value={newLoan.reason}
                 onChange={(e) => setNewLoan({ ...newLoan, reason: e.target.value })}
@@ -457,9 +551,9 @@ export function GenerateReportModal({
         </div>
         <div className="modal-footer">
           <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
-          <button 
-            type="button" 
-            className="btn btn-primary" 
+          <button
+            type="button"
+            className="btn btn-primary"
             onClick={() => {
               const name = document.getElementById("rep-name").value;
               const period = document.getElementById("rep-period").value;
