@@ -251,21 +251,13 @@ export function ContributeDuesModal({
 
                 <div>
                   <h4 className="font-semibold text-lg text-navy-deep">Pay GH₵ {schemeConfig.monthlyContribution}.00</h4>
-                  <p className="text-xs text-text-3 mt-1">Select the month you wish to pay dues for below.</p>
+                  <p className="text-xs text-text-3 mt-1">Authorize your secure monthly welfare dues contribution.</p>
                 </div>
 
-                <div className="form-field text-left">
-                  <label className="font-bold text-navy text-xs">Select Contribution Month</label>
-                  <select 
-                    value={selectedMonth} 
-                    onChange={(e) => setSelectedMonth(e.target.value)}
-                    required
-                    className="border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  >
-                    {unpaidMonths.map((m, idx) => (
-                      <option key={idx} value={m.label}>{m.label}</option>
-                    ))}
-                  </select>
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-left">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Next Dues Month</span>
+                  <span className="text-sm font-extrabold text-navy-deep block">{selectedMonth}</span>
+                  <span className="text-[10px] text-text-3 block mt-1">Dues are processed chronologically in order of billing.</span>
                 </div>
 
                 <div className="bg-cream p-4 rounded-xl text-left text-xs font-semibold space-y-2 border border-border/30">
@@ -328,8 +320,9 @@ export function ContributeDuesModal({
                   value={newPayment.month}
                   onChange={(e) => setNewPayment({ ...newPayment, month: e.target.value })}
                 >
-                  <option>June 2026</option>
-                  <option>May 2026</option>
+                  {activeMonths.map((m, idx) => (
+                    <option key={idx} value={m.label}>{m.label}</option>
+                  ))}
                 </select>
               </div>
 
