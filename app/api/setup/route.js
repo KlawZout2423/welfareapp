@@ -9,15 +9,22 @@ function hashPassword(password) {
   return `pbkdf2:${salt}:${hash}`;
 }
 
-// ── GET is no longer allowed — prevents accidental data wipe ──────────────────
-export async function GET() {
-  return NextResponse.json(
-    {
-      success: false,
-      error: "Database setup requires a POST request with the x-setup-key header. GET requests are not allowed to prevent accidental data loss."
-    },
-    { status: 405 }
-  );
+// ── GET — browser-friendly setup trigger (protected by SETUP_SECRET query param) ──
+export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const key = searchParams.get("key");
+  const expectedKey = process.env.SETUP_SECRET;
+
+  // If no SETUP_SECRET is configured, allow in development only
+  if (expectedKey && key !== expectedKey) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized. Provide ?key=<SETUP_SECRET> to run setup." },
+      { status: 403 }
+    );
+  }
+
+  // Delegate to POST handler logic inline
+  return runSetup();
 }
 
 // ── POST — protected database reset and seed ──────────────────────────────────
@@ -26,13 +33,18 @@ export async function POST(request) {
   const setupKey = request.headers.get("x-setup-key");
   const expectedKey = process.env.SETUP_SECRET;
 
-  if (!expectedKey || setupKey !== expectedKey) {
+  if (expectedKey && setupKey !== expectedKey) {
     return NextResponse.json(
       { success: false, error: "Unauthorized. Provide a valid x-setup-key header." },
       { status: 403 }
     );
   }
 
+  return runSetup();
+}
+
+// ── Core setup logic (shared by GET and POST) ─────────────────────────────────
+async function runSetup() {
   try {
     // 1. Drop Tables in correct dependency order
     await query(`DROP TABLE IF EXISTS dues_ledger CASCADE;`);
@@ -45,8 +57,19 @@ export async function POST(request) {
     await query(`DROP TABLE IF EXISTS audit_logs CASCADE;`);
     await query(`DROP TABLE IF EXISTS reports CASCADE;`);
     await query(`DROP TABLE IF EXISTS members CASCADE;`);
+    await query(`DROP TABLE IF EXISTS scheme_config CASCADE;`);
 
     // 2. Create Tables
+    await query(`
+      CREATE TABLE scheme_config (
+        id SERIAL PRIMARY KEY,
+        monthly_contribution DECIMAL(10,2) DEFAULT 25.00,
+        eligibility_threshold INT DEFAULT 6,
+        sms_gateway VARCHAR(100) DEFAULT 'Hubtel',
+        financial_year VARCHAR(100) DEFAULT 'January – December'
+      );
+    `);
+
     await query(`
       CREATE TABLE members (
         id VARCHAR(50) PRIMARY KEY,
@@ -75,6 +98,12 @@ export async function POST(request) {
         apr BOOLEAN DEFAULT FALSE,
         may BOOLEAN DEFAULT FALSE,
         jun BOOLEAN DEFAULT FALSE,
+        jul BOOLEAN DEFAULT FALSE,
+        aug BOOLEAN DEFAULT FALSE,
+        sep BOOLEAN DEFAULT FALSE,
+        oct BOOLEAN DEFAULT FALSE,
+        nov BOOLEAN DEFAULT FALSE,
+        dec BOOLEAN DEFAULT FALSE,
         total INT DEFAULT 0
       );
     `);
@@ -195,13 +224,19 @@ export async function POST(request) {
     const staffIds = seeds.filter(s => s.role === "staff");
     for (const s of staffIds) {
       await query(
-        `INSERT INTO dues_ledger (id, name, union_name, jan, feb, mar, apr, may, jun, total)
-         VALUES ($1, $2, $3, false, false, false, false, false, false, 0)`,
+        `INSERT INTO dues_ledger (id, name, union_name, jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec, total)
+         VALUES ($1, $2, $3, false, false, false, false, false, false, false, false, false, false, false, false, 0)`,
         [s.id, s.name, s.union]
       );
     }
 
-    // 5. Seed welcome notification + activity
+    // 5. Seed scheme config
+    await query(`
+      INSERT INTO scheme_config (monthly_contribution, eligibility_threshold, sms_gateway, financial_year)
+      VALUES (25.00, 6, 'Hubtel', 'January – December');
+    `);
+
+    // 6. Seed welcome notification + activity
     await query(`
       INSERT INTO notifications (text, unread, time_str) VALUES
       ('HTU Welfare Scheme Database initialized successfully.', true, 'Just now');

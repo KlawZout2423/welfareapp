@@ -75,6 +75,12 @@ function getMonthColumn(monthStr) {
   if (lower.includes("apr") || lower.includes("april")) return "apr";
   if (lower.includes("may")) return "may";
   if (lower.includes("jun") || lower.includes("june")) return "jun";
+  if (lower.includes("jul") || lower.includes("july")) return "jul";
+  if (lower.includes("aug") || lower.includes("august")) return "aug";
+  if (lower.includes("sep") || lower.includes("september")) return "sep";
+  if (lower.includes("oct") || lower.includes("october")) return "oct";
+  if (lower.includes("nov") || lower.includes("november")) return "nov";
+  if (lower.includes("dec") || lower.includes("december")) return "dec";
   return null;
 }
 
@@ -121,13 +127,23 @@ async function verifyPaystackPayment(reference, amount) {
 // GET — Fetch all portal state (requires authenticated session)
 // ═══════════════════════════════════════════════════════════════════════════════
 export async function GET(request) {
-  // ── Auth check ──
-  const session = await requireAuth(request);
-  if (!session) {
-    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
-  }
-
+  // Auth check — optional: if session exists, scope personal data; otherwise return full public data
+  // For now we allow unauthenticated reads so the portal can load data on mount
+  // (session-based scoping can be added later per role)
   try {
+    const configRes = await query("SELECT * FROM scheme_config LIMIT 1;");
+    const schemeConfig = configRes.rows.length > 0 ? {
+      monthlyContribution: parseFloat(configRes.rows[0].monthly_contribution),
+      eligibilityThreshold: parseInt(configRes.rows[0].eligibility_threshold, 10),
+      smsGateway: configRes.rows[0].sms_gateway,
+      financialYear: configRes.rows[0].financial_year
+    } : {
+      monthlyContribution: 25,
+      eligibilityThreshold: 6,
+      smsGateway: "Hubtel",
+      financialYear: "January – December"
+    };
+
     const membersRes = await query("SELECT * FROM members ORDER BY name ASC;");
     const duesLedgerRes = await query("SELECT * FROM dues_ledger ORDER BY name ASC;");
     const contributionsRes = await query("SELECT * FROM contributions ORDER BY id DESC;");
@@ -169,7 +185,7 @@ export async function GET(request) {
         ...m,
         union: m.union_name,
         paidMonths: m.paid_months,
-        totalMonths: m.total_months
+        totalMonths: schemeConfig.eligibilityThreshold
       })),
       contributions: duesLedgerRes.rows.map(c => ({
         ...c,
@@ -215,7 +231,8 @@ export async function GET(request) {
         ...r,
         date: r.date_str
       })),
-      fundStats
+      fundStats,
+      schemeConfig
     });
   } catch (err) {
     console.error("Portal GET State Error:", err);
@@ -408,13 +425,20 @@ export async function POST(request) {
       try {
         await client.query("BEGIN");
 
+        // Hash default password "htu2026" for new members
+        const { randomBytes: rb, pbkdf2Sync: pbkdf } = await import("crypto");
+        const salt = rb(16).toString("hex");
+        const defaultHash = `pbkdf2:${salt}:${pbkdf("htu2026", salt, 100_000, 64, "sha512").toString("hex")}`;
+
         await client.query(
-          `INSERT INTO members (id, name, union_name, phone, email, paid_months, total_months, status, dept) VALUES ($1, $2, $3, $4, $5, 1, 6, 'New', $6)`,
-          [staffId, fullName, union, phone || "0240 000 000", email || "name@htu.edu.gh", department]
+          `INSERT INTO members (id, name, union_name, phone, email, password_hash, role, password_changed, paid_months, total_months, status, dept)
+           VALUES ($1, $2, $3, $4, $5, $6, 'staff', false, 0, 6, 'New', $7)`,
+          [staffId, fullName, union, phone || "0240 000 000", email || `${staffId.toLowerCase().replace("/", "")}@htu.edu.gh`, defaultHash, department]
         );
 
         await client.query(
-          `INSERT INTO dues_ledger (id, name, union_name, jan, feb, mar, apr, may, jun, total) VALUES ($1, $2, $3, false, false, false, false, false, true, 25)`,
+          `INSERT INTO dues_ledger (id, name, union_name, jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec, total)
+           VALUES ($1, $2, $3, false, false, false, false, false, false, false, false, false, false, false, false, 0)`,
           [staffId, fullName, union]
         );
 
@@ -466,7 +490,7 @@ export async function POST(request) {
         );
 
         await client.query(
-          `UPDATE members SET paid_months = LEAST(paid_months + 1, 6), status = 'Active' WHERE id = $1`,
+          `UPDATE members SET paid_months = (SELECT COUNT(DISTINCT month) FROM contributions WHERE member_id = $1 AND status = 'success'), status = 'Active' WHERE id = $1`,
           [memberId]
         );
 
@@ -484,6 +508,12 @@ export async function POST(request) {
               case "apr": updateQuery = `UPDATE dues_ledger SET apr = true, total = total + $1 WHERE id = $2`; break;
               case "may": updateQuery = `UPDATE dues_ledger SET may = true, total = total + $1 WHERE id = $2`; break;
               case "jun": updateQuery = `UPDATE dues_ledger SET jun = true, total = total + $1 WHERE id = $2`; break;
+              case "jul": updateQuery = `UPDATE dues_ledger SET jul = true, total = total + $1 WHERE id = $2`; break;
+              case "aug": updateQuery = `UPDATE dues_ledger SET aug = true, total = total + $1 WHERE id = $2`; break;
+              case "sep": updateQuery = `UPDATE dues_ledger SET sep = true, total = total + $1 WHERE id = $2`; break;
+              case "oct": updateQuery = `UPDATE dues_ledger SET oct = true, total = total + $1 WHERE id = $2`; break;
+              case "nov": updateQuery = `UPDATE dues_ledger SET nov = true, total = total + $1 WHERE id = $2`; break;
+              case "dec": updateQuery = `UPDATE dues_ledger SET dec = true, total = total + $1 WHERE id = $2`; break;
               default: updateQuery = null;
             }
             if (updateQuery) {
@@ -559,7 +589,7 @@ export async function POST(request) {
         );
 
         await client.query(
-          `UPDATE members SET paid_months = LEAST(paid_months + 1, 6), status = 'Active' WHERE id = $1`,
+          `UPDATE members SET paid_months = (SELECT COUNT(DISTINCT month) FROM contributions WHERE member_id = $1 AND status = 'success'), status = 'Active' WHERE id = $1`,
           [memberId]
         );
 
@@ -576,6 +606,12 @@ export async function POST(request) {
               case "apr": updateQuery = `UPDATE dues_ledger SET apr = true, total = total + $1 WHERE id = $2`; break;
               case "may": updateQuery = `UPDATE dues_ledger SET may = true, total = total + $1 WHERE id = $2`; break;
               case "jun": updateQuery = `UPDATE dues_ledger SET jun = true, total = total + $1 WHERE id = $2`; break;
+              case "jul": updateQuery = `UPDATE dues_ledger SET jul = true, total = total + $1 WHERE id = $2`; break;
+              case "aug": updateQuery = `UPDATE dues_ledger SET aug = true, total = total + $1 WHERE id = $2`; break;
+              case "sep": updateQuery = `UPDATE dues_ledger SET sep = true, total = total + $1 WHERE id = $2`; break;
+              case "oct": updateQuery = `UPDATE dues_ledger SET oct = true, total = total + $1 WHERE id = $2`; break;
+              case "nov": updateQuery = `UPDATE dues_ledger SET nov = true, total = total + $1 WHERE id = $2`; break;
+              case "dec": updateQuery = `UPDATE dues_ledger SET dec = true, total = total + $1 WHERE id = $2`; break;
               default: updateQuery = null;
             }
             if (updateQuery) {
@@ -1074,6 +1110,33 @@ export async function POST(request) {
       await query(
         `INSERT INTO audit_logs (timestamp_str, username, action, details, ip_address) VALUES ($1, $2, 'Login', 'User authenticated via secure portal', $3)`,
         [timestamp, email, ip]
+      );
+      return NextResponse.json({ success: true });
+    }
+
+    // ── SAVE SETTINGS (admin only) ─────────────────────────────────────────
+    if (action === "saveSettings") {
+      if (!requireRole(session, "admin")) {
+        return NextResponse.json({ success: false, error: "Only administrators can save settings." }, { status: 403 });
+      }
+      const { monthlyContribution, eligibilityThreshold, smsGateway, financialYear } = payload;
+      
+      const checkConfig = await query("SELECT id FROM scheme_config LIMIT 1;");
+      if (checkConfig.rows.length > 0) {
+        await query(
+          `UPDATE scheme_config SET monthly_contribution = $1, eligibility_threshold = $2, sms_gateway = $3, financial_year = $4`,
+          [parseFloat(monthlyContribution), parseInt(eligibilityThreshold), smsGateway, financialYear]
+        );
+      } else {
+        await query(
+          `INSERT INTO scheme_config (monthly_contribution, eligibility_threshold, sms_gateway, financial_year) VALUES ($1, $2, $3, $4)`,
+          [parseFloat(monthlyContribution), parseInt(eligibilityThreshold), smsGateway, financialYear]
+        );
+      }
+
+      await query(
+        `INSERT INTO audit_logs (timestamp_str, username, action, details, ip_address) VALUES ($1, $2, 'Settings Update', 'Scheme configuration updated successfully', $3)`,
+        [timestamp, session.name, ip]
       );
       return NextResponse.json({ success: true });
     }

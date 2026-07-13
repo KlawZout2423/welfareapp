@@ -18,6 +18,15 @@ export default function ContributionsLedger({
   );
   const isConsecutivelyCompliant = TRACKED_MONTHS.every(m => paidSet.has(m));
 
+  // Live stats for admin summary cards
+  const staffMembers = contributions; // dues_ledger rows (staff only)
+  const totalExpected = staffMembers.length * schemeConfig.monthlyContribution;
+  const totalCollectedLive = staffMembers.reduce((sum, m) => sum + (parseFloat(m.total) || 0), 0);
+  const defaulters = staffMembers.filter(m => !m[TRACKED_MONTHS[TRACKED_MONTHS.length - 1]?.toLowerCase()]);
+  const outstandingAmount = (defaulters.length) * schemeConfig.monthlyContribution;
+  const collectionRate = totalExpected > 0 ? Math.min((totalCollectedLive / totalExpected) * 100, 100) : 0;
+  const defaultRate = staffMembers.length > 0 ? (defaulters.length / staffMembers.length) * 100 : 0;
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="section-header">
@@ -81,25 +90,25 @@ export default function ContributionsLedger({
         <>
           <div className="contribution-summary">
             <div className="contrib-card">
-              <div className="contrib-amount" style={{ color: "var(--navy)" }}>GH₵{fundStats.juneCollections.toLocaleString()}</div>
-              <div className="contrib-label">Collected (June 2026)</div>
+              <div className="contrib-amount" style={{ color: "var(--navy)" }}>GH₵{totalCollectedLive.toLocaleString()}</div>
+              <div className="contrib-label">Total Collected (All Months)</div>
               <div className="prog-bar" style={{ marginTop: "12px" }}>
-                <div className="prog-fill" style={{ width: "96.2%", backgroundColor: "var(--green)" }}></div>
+                <div className="prog-fill" style={{ width: `${collectionRate.toFixed(1)}%`, backgroundColor: "var(--green)" }}></div>
               </div>
-              <div style={{ fontSize: "11px", color: "var(--green)", marginTop: "4px", fontWeight: "600" }}>96.2% collection rate</div>
+              <div style={{ fontSize: "11px", color: "var(--green)", marginTop: "4px", fontWeight: "600" }}>{collectionRate.toFixed(1)}% collection rate</div>
             </div>
             <div className="contrib-card">
-              <div className="contrib-amount" style={{ color: "var(--red)" }}>GH₵200</div>
-              <div className="contrib-label">Outstanding (8 defaulters)</div>
+              <div className="contrib-amount" style={{ color: "var(--red)" }}>GH₵{outstandingAmount.toLocaleString()}</div>
+              <div className="contrib-label">Outstanding ({defaulters.length} defaulters)</div>
               <div className="prog-bar" style={{ marginTop: "12px" }}>
-                <div className="prog-fill" style={{ width: "3.8%", backgroundColor: "var(--red)" }}></div>
+                <div className="prog-fill" style={{ width: `${defaultRate.toFixed(1)}%`, backgroundColor: "var(--red)" }}></div>
               </div>
-              <div style={{ fontSize: "11px", color: "var(--red)", marginTop: "4px", fontWeight: "600" }}>3.8% default rate</div>
+              <div style={{ fontSize: "11px", color: "var(--red)", marginTop: "4px", fontWeight: "600" }}>{defaultRate.toFixed(1)}% default rate</div>
             </div>
             <div className="contrib-card">
-              <div className="contrib-amount" style={{ color: "var(--gold)" }}>GH₵{((members.length || 248) * schemeConfig.monthlyContribution).toLocaleString()}</div>
-              <div className="contrib-label">Expected ({members.length} × GH₵{schemeConfig.monthlyContribution})</div>
-              <div style={{ marginTop: "12px", fontSize: "12px", color: "var(--text-3)" }}>{members.length} active members</div>
+              <div className="contrib-amount" style={{ color: "var(--gold)" }}>GH₵{totalExpected.toLocaleString()}</div>
+              <div className="contrib-label">Expected ({staffMembers.length} × GH₵{schemeConfig.monthlyContribution})</div>
+              <div style={{ marginTop: "12px", fontSize: "12px", color: "var(--text-3)" }}>{staffMembers.length} registered staff members</div>
             </div>
           </div>
 
@@ -117,12 +126,16 @@ export default function ContributionsLedger({
               <thead>
                 <tr>
                   <th>Member</th><th>Staff ID</th><th>Union</th>
-                  <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th><th>Total Paid</th>
+                  {TRACKED_MONTHS.map(m => (
+                    <th key={m}>{m}</th>
+                  ))}
+                  <th>Total Paid</th>
                 </tr>
               </thead>
               <tbody>
                 {contributions.map((c, idx) => {
-                  const months = ["jan", "feb", "mar", "apr", "may", "jun"];
+                  const months = TRACKED_MONTHS.map(m => m.toLowerCase());
+                  const lastMonthKey = months[months.length - 1];
                   return (
                     <tr key={idx}>
                       <td>
@@ -136,7 +149,7 @@ export default function ContributionsLedger({
                       {months.map(m => (
                         <td key={m}>{c[m] ? <span className="badge badge-green">✓</span> : <span className="badge badge-red">✗</span>}</td>
                       ))}
-                      <td style={{ fontWeight: "600", color: c.jun ? "var(--green)" : "var(--red)" }}>GH₵{c.total}</td>
+                      <td style={{ fontWeight: "600", color: c[lastMonthKey] ? "var(--green)" : "var(--red)" }}>GH₵{c.total}</td>
                     </tr>
                   );
                 })}
