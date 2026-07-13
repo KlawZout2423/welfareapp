@@ -50,6 +50,7 @@ async function runSetup() {
     await query(`DROP TABLE IF EXISTS dues_ledger CASCADE;`);
     await query(`DROP TABLE IF EXISTS contributions CASCADE;`);
     await query(`DROP TABLE IF EXISTS claims CASCADE;`);
+    await query(`DROP TABLE IF EXISTS claim_documents CASCADE;`);
     await query(`DROP TABLE IF EXISTS loans CASCADE;`);
     await query(`DROP TABLE IF EXISTS notifications CASCADE;`);
     await query(`DROP TABLE IF EXISTS activities CASCADE;`);
@@ -195,6 +196,18 @@ async function runSetup() {
         period VARCHAR(100) NOT NULL,
         date_str VARCHAR(50) NOT NULL,
         status VARCHAR(50) NOT NULL
+      );
+    `);
+
+    await query(`
+      CREATE TABLE claim_documents (
+        id SERIAL PRIMARY KEY,
+        claim_id VARCHAR(50) NOT NULL,
+        member_id VARCHAR(50) NOT NULL,
+        file_name VARCHAR(255) NOT NULL,
+        file_url TEXT NOT NULL,
+        file_type VARCHAR(100),
+        uploaded_at VARCHAR(50) NOT NULL
       );
     `);
 

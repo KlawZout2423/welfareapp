@@ -1,6 +1,67 @@
 "use client";
 
-import { Plus, AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { Plus, AlertCircle, FileText, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+
+function ClaimDocuments({ claimId }) {
+  const [docs, setDocs] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const fetchDocs = async () => {
+    if (docs !== null) { setOpen(!open); return; }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "getClaimDocuments", payload: { claimId } })
+      });
+      const data = await res.json();
+      setDocs(data.documents || []);
+      setOpen(true);
+    } catch {
+      setDocs([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="mt-1">
+      <button
+        type="button"
+        onClick={fetchDocs}
+        className="flex items-center gap-1 text-[10px] font-bold text-navy hover:text-gold transition-colors"
+      >
+        <FileText className="w-3 h-3" />
+        {loading ? "Loading..." : "View Docs"}
+        {docs !== null && (open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+      </button>
+      {open && docs !== null && (
+        <div className="mt-1.5 space-y-1">
+          {docs.length === 0 ? (
+            <span className="text-[10px] text-text-3 font-semibold">No documents uploaded.</span>
+          ) : (
+            docs.map((doc, i) => (
+              <a
+                key={i}
+                href={doc.file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-[10px] font-semibold text-navy hover:text-gold transition-colors"
+              >
+                <FileText className="w-3 h-3 shrink-0" />
+                <span className="truncate max-w-[140px]">{doc.file_name}</span>
+                <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+              </a>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ClaimsTracker({
   userRole, userProfile, claims,
@@ -129,7 +190,10 @@ export default function ClaimsTracker({
                 <tbody>
                   {claims.map((c, idx) => (
                     <tr key={idx}>
-                      <td className="font-bold text-text-3 text-xs">{c.id}</td>
+                      <td className="font-bold text-text-3 text-xs">
+                        {c.id}
+                        <ClaimDocuments claimId={c.id} />
+                      </td>
                       <td className="font-semibold">{c.applicant} ({c.index})</td>
                       <td className="font-bold text-text-2">{c.type}</td>
                       <td className="font-bold text-navy-deep">GH₵{c.amount}</td>

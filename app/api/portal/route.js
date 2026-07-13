@@ -1114,6 +1114,45 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
+    // ── SAVE CLAIM DOCUMENTS (metadata after Supabase upload) ────────────
+    if (action === "saveClaimDocuments") {
+      if (session.role === "auditor") {
+        return NextResponse.json({ success: false, error: "Auditors cannot upload documents." }, { status: 403 });
+      }
+
+      const { claimId, memberId, documents } = payload;
+      // documents: [{ fileName, fileUrl, fileType }]
+      if (!Array.isArray(documents) || documents.length === 0) {
+        return NextResponse.json({ success: false, error: "No documents provided." }, { status: 400 });
+      }
+
+      const uploaded = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+      for (const doc of documents) {
+        await query(
+          `INSERT INTO claim_documents (claim_id, member_id, file_name, file_url, file_type, uploaded_at)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [claimId, memberId, doc.fileName, doc.fileUrl, doc.fileType || "application/octet-stream", uploaded]
+        );
+      }
+
+      await query(
+        `INSERT INTO audit_logs (timestamp_str, username, action, details, ip_address) VALUES ($1, $2, 'Document Upload', $3, $4)`,
+        [timestamp, session.name, `${documents.length} document(s) uploaded for claim ${claimId}`, ip]
+      );
+
+      return NextResponse.json({ success: true });
+    }
+
+    // ── GET CLAIM DOCUMENTS ───────────────────────────────────────────────
+    if (action === "getClaimDocuments") {
+      const { claimId } = payload;
+      const result = await query(
+        `SELECT * FROM claim_documents WHERE claim_id = $1 ORDER BY id ASC`,
+        [claimId]
+      );
+      return NextResponse.json({ success: true, documents: result.rows });
+    }
+
     // ── SAVE SETTINGS (admin only) ─────────────────────────────────────────
     if (action === "saveSettings") {
       if (!requireRole(session, "admin")) {

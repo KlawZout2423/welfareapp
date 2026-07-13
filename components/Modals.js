@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { CreditCard, Sparkles, Plus, AlertCircle, FileText, CheckCircle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { CreditCard, Sparkles, Plus, AlertCircle, FileText, CheckCircle, Upload, X, Paperclip } from "lucide-react";
+import { uploadClaimFile } from "@/lib/supabase/storage";
 
 // --- MODAL 1: REGISTER MEMBER ---
 export function RegisterMemberModal({
@@ -369,7 +370,73 @@ export function FileBenefitClaimModal({
   setNewClaim,
   onSubmit
 }) {
+  const [files, setFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const fileInputRef = useRef(null);
+
+  // Reset files when modal opens/closes
+  useEffect(() => {
+    if (!show) {
+      setFiles([]);
+      setUploadError("");
+    }
+  }, [show]);
+
+  const handleFileChange = (e) => {
+    const selected = Array.from(e.target.files);
+    const allowed = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
+    const invalid = selected.filter(f => !allowed.includes(f.type));
+    if (invalid.length > 0) {
+      setUploadError("Only PDF, JPG, and PNG files are accepted.");
+      return;
+    }
+    const oversize = selected.filter(f => f.size > 5 * 1024 * 1024);
+    if (oversize.length > 0) {
+      setUploadError("Each file must be under 5MB.");
+      return;
+    }
+    setUploadError("");
+    setFiles(prev => [...prev, ...selected].slice(0, 5)); // max 5 files
+    e.target.value = "";
+  };
+
+  const removeFile = (idx) => setFiles(prev => prev.filter((_, i) => i !== idx));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!newClaim.title || !newClaim.amount) return;
+
+    setUploading(true);
+    setUploadError("");
+
+    try {
+      // Generate a temp claim ID prefix for file paths (server will create real ID)
+      const tempId = `TEMP-${Date.now()}`;
+      const uploadedDocs = [];
+
+      for (const file of files) {
+        const { url, error } = await uploadClaimFile(tempId, file);
+        if (error) {
+          setUploadError(`Failed to upload ${file.name}: ${error}`);
+          setUploading(false);
+          return;
+        }
+        uploadedDocs.push({ fileName: file.name, fileUrl: url, fileType: file.type });
+      }
+
+      // Pass uploaded docs along with the claim submission
+      await onSubmit(e, uploadedDocs);
+      setFiles([]);
+    } catch (err) {
+      setUploadError("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   if (!show) return null;
+
   return (
     <div className="modal-overlay">
       <div className="modal">
@@ -377,7 +444,7 @@ export function FileBenefitClaimModal({
           <h3 className="modal-title">New Benefit Claim Request</h3>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
-        <form onSubmit={onSubmit}>
+        <form onSubmit={handleSubmit}>
           <div className="modal-body space-y-4">
             {userRole !== "staff" && (
               <div className="form-field">
@@ -432,10 +499,74 @@ export function FileBenefitClaimModal({
                 onChange={(e) => setNewClaim({ ...newClaim, title: e.target.value })}
               />
             </div>
+
+            {/* ── Document Upload ── */}
+            <div className="form-field">
+              <label className="flex items-center gap-1.5">
+                <Paperclip className="w-3.5 h-3.5" />
+                Supporting Documents
+                <span className="text-text-3 font-normal normal-case tracking-normal" style={{ fontSize: "10px" }}>
+                  (PDF, JPG, PNG — max 5MB each, up to 5 files)
+                </span>
+              </label>
+
+              {/* Drop zone */}
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-slate-200 rounded-xl p-5 text-center cursor-pointer hover:border-navy transition-colors"
+                style={{ background: "var(--cream)" }}
+              >
+                <Upload className="w-6 h-6 text-slate-400 mx-auto mb-2" />
+                <p className="text-xs font-semibold text-slate-500">
+                  Click to upload or drag files here
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Medical reports, death certificates, doctor letters, etc.
+                </p>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+
+              {/* File list */}
+              {files.length > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  {files.map((file, idx) => (
+                    <div key={idx} className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2">
+                      <FileText className="w-4 h-4 text-navy shrink-0" />
+                      <span className="text-xs font-semibold text-navy flex-1 truncate">{file.name}</span>
+                      <span className="text-[10px] text-slate-400 shrink-0">{(file.size / 1024).toFixed(0)} KB</span>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(idx)}
+                        className="text-slate-400 hover:text-red transition-colors shrink-0"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {uploadError && (
+                <div className="flex items-center gap-2 mt-2 text-red text-xs font-semibold">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  {uploadError}
+                </div>
+              )}
+            </div>
           </div>
+
           <div className="modal-footer">
-            <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary">File Claim</button>
+            <button type="button" className="btn btn-outline" onClick={onClose} disabled={uploading}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={uploading}>
+              {uploading ? "Uploading..." : "File Claim"}
+            </button>
           </div>
         </form>
       </div>
