@@ -17,6 +17,9 @@ const dmSans = DM_Sans({
 export const metadata = {
   title: "HTU Staff Welfare Scheme",
   description: "Official Welfare Scheme, contributions, claims, and emergency loan portal for Ho Technical University staff.",
+  icons: {
+    icon: "/htu_logo.jpg",
+  },
 };
 
 import { WelfareProvider } from "@/lib/context/WelfareContext";
