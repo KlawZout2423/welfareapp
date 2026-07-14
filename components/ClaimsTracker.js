@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, AlertCircle, FileText, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, AlertCircle, FileText, ExternalLink, ChevronDown, ChevronUp, Search } from "lucide-react";
 
 function ClaimDocuments({ claimId }) {
   const [docs, setDocs] = useState(null);
@@ -65,9 +65,14 @@ function ClaimDocuments({ claimId }) {
 
 export default function ClaimsTracker({
   userRole, userProfile, claims,
-  setShowClaimModal, handleApproveClaim, handleRejectClaim
+  setShowClaimModal, handleApproveClaim, handleRejectClaim, searchQuery = ""
 }) {
   const isAuditor = userRole === "auditor";
+  const filteredClaims = claims.filter(c => {
+    const q = searchQuery.toLowerCase();
+    if (!q) return true;
+    return (c.applicant || "").toLowerCase().includes(q) || (c.id || "").toLowerCase().includes(q) || (c.type || "").toLowerCase().includes(q) || (c.index || "").toLowerCase().includes(q);
+  });
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="section-header">
@@ -116,7 +121,7 @@ export default function ClaimsTracker({
         <div className="card-body">
           {userRole === "staff" ? (
             <div className="space-y-6">
-              {claims
+              {filteredClaims
                 .filter(c => c.applicant === userProfile.name)
                 .map((c, idx) => {
                   const steps = [
@@ -139,7 +144,7 @@ export default function ClaimsTracker({
                         </div>
                       </div>
 
-                      <p className="text-xs text-text-2 italic bg-cream/30 p-3 rounded-lg border border-border/20">
+                      <p className="text-xs text-text-2 italic bg-slate-50 p-3 rounded-lg border border-slate-200/50">
                         <strong>Status Detail:</strong> {c.notes}
                       </p>
 
@@ -169,64 +174,77 @@ export default function ClaimsTracker({
                     </div>
                   );
                 })}
-              {claims.filter(c => c.applicant === userProfile.name).length === 0 && (
+              {filteredClaims.filter(c => c.applicant === userProfile.name).length === 0 && (
                 <div className="text-center py-10 text-text-3 font-semibold">No benefit claims submitted yet.</div>
               )}
             </div>
           ) : (
             <div className="table-wrap">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Claim ID</th>
-                    <th>Applicant</th>
-                    <th>Benefit Type</th>
-                    <th>Amount</th>
-                    <th>Submitted Date</th>
-                    <th>Status</th>
-                    {(userRole === "admin" || isAuditor) && <th>Action Options</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {claims.map((c, idx) => (
-                    <tr key={idx}>
-                      <td className="font-bold text-text-3 text-xs">
-                        {c.id}
-                        <ClaimDocuments claimId={c.id} />
-                      </td>
-                      <td className="font-semibold">{c.applicant} ({c.index})</td>
-                      <td className="font-bold text-text-2">{c.type}</td>
-                      <td className="font-bold text-navy-deep">GH₵{c.amount}</td>
-                      <td>{c.date}</td>
-                      <td>
-                        <span className={`badge ${c.status === "Approved" ? "badge-green" : c.status === "Rejected" ? "badge-red" : "badge-gold"}`}>
-                          {c.status}
-                        </span>
-                      </td>
-                      {(userRole === "admin" || isAuditor) && (
-                        <td>
-                          {userRole === "admin" && c.status === "Pending" ? (
-                            <div style={{ display: "flex", gap: "6px" }}>
-                              <button onClick={() => handleApproveClaim(c.id)} className="btn btn-sm"
-                                style={{ background: "var(--green-pale)", color: "var(--green)", border: "none", cursor: "pointer", borderRadius: "6px", padding: "5px 10px", fontSize: "11px", fontWeight: "600" }}>
-                                Approve
-                              </button>
-                              <button onClick={() => handleRejectClaim(c.id)} className="btn btn-sm"
-                                style={{ background: "var(--red-pale)", color: "var(--red)", border: "none", cursor: "pointer", borderRadius: "6px", padding: "5px 10px", fontSize: "11px", fontWeight: "600" }}>
-                                Reject
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-text-3 font-semibold">
-                              {isAuditor ? "Read-Only" : "Processed"}
-                            </span>
-                          )}
-                        </td>
-                      )}
+              <div className="table-responsive">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Claim ID</th>
+                      <th>Applicant</th>
+                      <th>Benefit Type</th>
+                      <th>Amount</th>
+                      <th>Submitted Date</th>
+                      <th>Status</th>
+                      {(userRole === "admin" || isAuditor) && <th>Action Options</th>}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filteredClaims.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="text-center py-12">
+                          <div className="flex flex-col items-center justify-center space-y-2 text-text-3">
+                            <Search className="w-8 h-8 opacity-40 text-gold" />
+                            <p className="font-bold text-sm text-navy-deep">No Benefit Claims Found</p>
+                            <p className="text-xs font-semibold">Try modifying your search query.</p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    {filteredClaims.map((c, idx) => (
+                      <tr key={idx}>
+                        <td className="font-bold text-text-3 text-xs">
+                          {c.id}
+                          <ClaimDocuments claimId={c.id} />
+                        </td>
+                        <td className="font-semibold">{c.applicant} ({c.index})</td>
+                        <td className="font-bold text-text-2">{c.type}</td>
+                        <td className="font-bold text-navy-deep font-sans">GH₵{c.amount}</td>
+                        <td>{c.date}</td>
+                        <td>
+                          <span className={`badge ${c.status === "Approved" ? "badge-green" : c.status === "Rejected" ? "badge-red" : "badge-gold"}`}>
+                            {c.status}
+                          </span>
+                        </td>
+                        {(userRole === "admin" || isAuditor) && (
+                          <td>
+                            {userRole === "admin" && c.status === "Pending" ? (
+                              <div style={{ display: "flex", gap: "6px" }}>
+                                <button onClick={() => handleApproveClaim(c.id)} className="btn btn-sm"
+                                  style={{ background: "var(--green-pale)", color: "var(--green)", border: "none", cursor: "pointer", borderRadius: "6px", padding: "5px 10px", fontSize: "11px", fontWeight: "600" }}>
+                                  Approve
+                                </button>
+                                <button onClick={() => handleRejectClaim(c.id)} className="btn btn-sm"
+                                  style={{ background: "var(--red-pale)", color: "var(--red)", border: "none", cursor: "pointer", borderRadius: "6px", padding: "5px 10px", fontSize: "11px", fontWeight: "600" }}>
+                                  Reject
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-text-3 font-semibold">
+                                {isAuditor ? "Read-Only" : "Processed"}
+                              </span>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Search, Bell, ShieldCheck, Menu } from "lucide-react";
 
 const TAB_TITLES = {
@@ -17,6 +18,23 @@ export default function Topbar({
   notifications, isNotifOpen, setIsNotifOpen,
   markAllNotifRead, isMobileMenuOpen, setIsMobileMenuOpen,
 }) {
+  const dropdownRef = useRef(null);
+  const buttonRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (
+        isNotifOpen &&
+        dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+        buttonRef.current && !buttonRef.current.contains(event.target)
+      ) {
+        setIsNotifOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isNotifOpen, setIsNotifOpen]);
+
   const getTitle = () => {
     if (activeTab === "contributions") return userRole === "staff" ? "My Dues statement" : "Contributions Ledger";
     if (activeTab === "claims") return userRole === "staff" ? "My Benefit Claims" : "Benefit Claims Queue";
@@ -30,6 +48,8 @@ export default function Topbar({
       <button
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         className="lg:hidden p-2 text-navy hover:bg-cream rounded-lg"
+        aria-label="Toggle Navigation Sidebar"
+        aria-expanded={isMobileMenuOpen}
       >
         <Menu className="h-6 w-6" />
       </button>
@@ -56,11 +76,18 @@ export default function Topbar({
             placeholder="Search ledger, claims..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search active ledger database"
           />
         </div>
 
         <div className="relative">
-          <button onClick={() => setIsNotifOpen(!isNotifOpen)} className="icon-btn">
+          <button
+            ref={buttonRef}
+            onClick={() => setIsNotifOpen(!isNotifOpen)}
+            className="icon-btn"
+            aria-label="Toggle notification alerts"
+            aria-expanded={isNotifOpen}
+          >
             <Bell className="h-5 w-5" />
             {notifications.filter(n => n.unread).length > 0 && (
               <span className="notif-dot"></span>
@@ -68,7 +95,7 @@ export default function Topbar({
           </button>
 
           {isNotifOpen && (
-            <div className="notif-dropdown open">
+            <div ref={dropdownRef} className="notif-dropdown open" role="dialog" aria-label="Notifications alerts">
               <div className="notif-head">
                 <h4>Notifications</h4>
                 <button onClick={markAllNotifRead} className="notif-mark-all">Mark all read</button>
@@ -93,7 +120,7 @@ export default function Topbar({
             AUDIT MODE
           </div>
         )}
-        <div className="topbar-avatar">{userProfile.avatarInitials}</div>
+        <div className="topbar-avatar" aria-label={`User avatar initials for ${userProfile.name || ""}`}>{userProfile.avatarInitials}</div>
       </div>
     </header>
   );

@@ -70,7 +70,13 @@ export function SMSPanel({ userRole, smsData, setSmsData, smsHistory, handleSend
 }
 
 // --- Audit Trail Log ---
-export function AuditLog({ auditLogs }) {
+export function AuditLog({ auditLogs, searchQuery = "" }) {
+  const filteredLogs = auditLogs.filter(l => {
+    const q = searchQuery.toLowerCase();
+    if (!q) return true;
+    return (l.user || "").toLowerCase().includes(q) || (l.action || "").toLowerCase().includes(q) || (l.details || "").toLowerCase().includes(q) || (l.ip || "").toLowerCase().includes(q);
+  });
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="section-header">
@@ -78,7 +84,18 @@ export function AuditLog({ auditLogs }) {
           <h2>Audit Trail log</h2>
           <p>Full system activity log for accountability</p>
         </div>
-        <button className="btn btn-outline" onClick={() => alert("Simulation: Audit log exported.")}>Export Log</button>
+        <button className="btn btn-outline" onClick={() => {
+          const headers = ["Timestamp", "User", "Action", "Details", "IP Address"];
+          const rows = filteredLogs.map(l => [l.timestamp, l.user, l.action, l.details, l.ip]);
+          const csv = [headers, ...rows].map(r => r.map(v => `"${(v || '').replace(/"/g, '""')}"`).join(",")).join("\n");
+          const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `HTU_Audit_Log_${new Date().toISOString().split("T")[0]}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+        }}>Export Log</button>
       </div>
       <div className="card">
         <div className="card-header"><div className="card-title">System Activity Log</div></div>
@@ -89,7 +106,7 @@ export function AuditLog({ auditLogs }) {
             </tr>
           </thead>
           <tbody>
-            {auditLogs.map((log, idx) => (
+            {filteredLogs.map((log, idx) => (
               <tr key={idx}>
                 <td style={{ fontSize: "12px", color: "var(--text-3)" }}>{log.timestamp}</td>
                 <td className="font-semibold">{log.user}</td>
@@ -140,7 +157,18 @@ export function ReportsPanel({ userRole, reportsList, setShowReportModal, handle
                   </td>
                   <td>
                     {r.status === "Available" ? (
-                      <button className="btn btn-outline btn-sm" onClick={() => alert(`Simulated Download of PDF Report for ${r.period}`)}>Download PDF</button>
+                      <button className="btn btn-outline btn-sm" onClick={() => {
+                        const printWin = window.open("", "_blank");
+                        printWin.document.write(`<!DOCTYPE html><html><head><title>${r.name} - ${r.period}</title><style>body{font-family:system-ui,sans-serif;padding:40px;color:#1c2333}h1{font-size:20px;color:#0d1e4c}h2{font-size:14px;color:#5a6377;font-weight:normal;margin-bottom:24px}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:10px 14px;text-align:left;border-bottom:1px solid #e2e8f0}th{background:#f4f6fa;font-weight:600;color:#0d1e4c}.footer{margin-top:32px;font-size:11px;color:#9aa0ae;border-top:1px solid #e2e8f0;padding-top:16px}@media print{body{padding:20px}}</style></head><body>`);
+                        printWin.document.write(`<h1>HTU Staff Welfare Scheme</h1><h2>${r.name} &mdash; ${r.period} &bull; Generated: ${r.date}</h2>`);
+                        printWin.document.write(`<table><thead><tr><th>Report</th><th>Period</th><th>Date Generated</th><th>Status</th></tr></thead><tbody>`);
+                        printWin.document.write(`<tr><td>${r.name}</td><td>${r.period}</td><td>${r.date}</td><td>${r.status}</td></tr>`);
+                        printWin.document.write(`</tbody></table>`);
+                        printWin.document.write(`<div class="footer">HTU Staff Welfare Scheme &copy; 2026. This is a system-generated document.</div>`);
+                        printWin.document.write(`</body></html>`);
+                        printWin.document.close();
+                        setTimeout(() => printWin.print(), 300);
+                      }}>Download PDF</button>
                     ) : (
                       userRole === "admin" && (
                         <button className="btn btn-primary font-bold btn-sm" onClick={() => handleGenerateReport(r.name, r.period)}>Generate</button>
@@ -165,6 +193,33 @@ export function SettingsPanel({ userRole, userProfile, schemeConfig, setSchemeCo
   const [isUpdatingPw, setIsUpdatingPw] = useState(false);
   const [pwSuccessMsg, setPwSuccessMsg] = useState("");
   const [pwErrorMsg, setPwErrorMsg] = useState("");
+
+  const handleSaveConfig = async () => {
+    try {
+      const res = await fetch("/api/portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "saveSettings",
+          payload: {
+            monthlyContribution: schemeConfig.monthlyContribution,
+            eligibilityThreshold: schemeConfig.eligibilityThreshold,
+            smsGateway: schemeConfig.smsGateway,
+            financialYear: schemeConfig.financialYear
+          }
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToastMsg("Scheme configuration settings saved!");
+      } else {
+        showToastMsg(data.error || "Failed to save configuration settings.", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToastMsg("An error occurred while saving configuration.", "error");
+    }
+  };
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
@@ -253,7 +308,7 @@ export function SettingsPanel({ userRole, userProfile, schemeConfig, setSchemeCo
               <span className="flex items-center gap-1 text-green">
                 <ShieldCheck className="w-4 h-4 text-green" /> Verification Status: Verified Active
               </span>
-              <button onClick={() => alert("Verification request sent to Welfare Secretariat.")} className="btn btn-outline btn-sm">Request Update</button>
+              <button onClick={() => showToastMsg("Verification request sent to Welfare Secretariat.")} className="btn btn-outline btn-sm">Request Update</button>
             </div>
           </div>
         </div>
@@ -290,8 +345,8 @@ export function SettingsPanel({ userRole, userProfile, schemeConfig, setSchemeCo
                   <option>January – December</option>
                 </select>
               </div>
-              {userRole === "admin" && (
-                <button className="btn btn-primary" onClick={() => showToastMsg("Scheme configuration settings saved!")}>Save Configuration</button>
+               {userRole === "admin" && (
+                <button className="btn btn-primary" onClick={handleSaveConfig}>Save Configuration</button>
               )}
             </div>
           </div>
@@ -305,10 +360,9 @@ export function SettingsPanel({ userRole, userProfile, schemeConfig, setSchemeCo
                 </thead>
                 <tbody>
                   {[
-                    { role: "Scheme Manager (Admin)", count: 1 },
-                    { role: "Scheme Accountant", count: 1 },
-                    { role: "Welfare Scheme Board Members", count: 5 },
-                    { role: "Staff Members", count: members.length },
+                    { role: "Scheme Manager (Admin)", count: members.filter(m => m.role === "admin").length },
+                    { role: "System Auditors", count: members.filter(m => m.role === "auditor").length },
+                    { role: "Staff Members", count: members.filter(m => m.role === "staff").length },
                   ].map((r, idx) => (
                     <tr key={idx}>
                       <td style={{ fontWeight: "500" }}>{r.role}</td>

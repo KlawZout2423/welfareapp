@@ -19,14 +19,18 @@ export const metadata = {
   description: "Official Welfare Scheme, contributions, claims, and emergency loan portal for Ho Technical University staff.",
 };
 
+import { WelfareProvider } from "@/lib/context/WelfareContext";
+
 export default function RootLayout({ children }) {
   return (
     <html
       lang="en"
       className={`${ebGaramond.variable} ${dmSans.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
-        {children}
+      <body className="min-h-full bg-cream text-text flex flex-col">
+        <WelfareProvider>
+          {children}
+        </WelfareProvider>
         <Script src="https://js.paystack.co/v2/inline.js" strategy="afterInteractive" />
       </body>
     </html>

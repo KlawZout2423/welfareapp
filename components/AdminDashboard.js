@@ -107,7 +107,26 @@ export default function AdminDashboard({
               <div className="card-title">Monthly Contributions</div>
               <div className="card-subtitle">Expected vs Collected (2026)</div>
             </div>
-            <button className="btn btn-outline btn-sm" onClick={() => alert("Simulation: Exporting CSV.")}>
+            <button className="btn btn-outline btn-sm" onClick={() => {
+              const headers = ["Month", "Expected Dues (GH₵)", "Collected Dues (GH₵)"];
+              const chartData = [
+                { month: "Jan", expected: 72 * 25, collected: 70 * 25 },
+                { month: "Feb", expected: 80 * 25, collected: 78 * 25 },
+                { month: "Mar", expected: 88 * 25, collected: 85 * 25 },
+                { month: "Apr", expected: 75 * 25, collected: 73 * 25 },
+                { month: "May", expected: 92 * 25, collected: 90 * 25 },
+                { month: "Jun", expected: 96 * 25, collected: 94 * 25 },
+              ];
+              const rows = chartData.map(d => [d.month, d.expected, d.collected]);
+              const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
+              const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `HTU_Monthly_Expected_Vs_Collected_Dues.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}>
               Export
             </button>
           </div>

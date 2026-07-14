@@ -58,6 +58,7 @@ async function runSetup() {
     await query(`DROP TABLE IF EXISTS audit_logs CASCADE;`);
     await query(`DROP TABLE IF EXISTS reports CASCADE;`);
     await query(`DROP TABLE IF EXISTS members CASCADE;`);
+    await query(`DROP TABLE IF EXISTS notices CASCADE;`);
     await query(`DROP TABLE IF EXISTS scheme_config CASCADE;`);
 
     // 2. Create Tables
@@ -84,7 +85,8 @@ async function runSetup() {
         paid_months INT DEFAULT 0,
         total_months INT DEFAULT 6,
         status VARCHAR(50) DEFAULT 'New',
-        dept VARCHAR(255)
+        dept VARCHAR(255),
+        enrolled_date DATE DEFAULT CURRENT_DATE
       );
     `);
 
@@ -211,25 +213,35 @@ async function runSetup() {
       );
     `);
 
+    await query(`
+      CREATE TABLE notices (
+        id SERIAL PRIMARY KEY,
+        category VARCHAR(50) NOT NULL DEFAULT 'Announcement',
+        title VARCHAR(255) NOT NULL,
+        body TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
     // 3. Seed members with hashed passwords
     // Default password for all staff: htu2026
     // Admin password:  manager2026
     // Auditor password: audit2026
     const seeds = [
-      { id: "HTU/0042",    name: "Staff Member",    union: "TUTAG",   phone: "0244 123 456", email: "staff@gmail.com",           password: "htu2026",     role: "staff",   passwordChanged: false, status: "New",    dept: "Computer Science Department"  },
-      { id: "HTU/ADM-001", name: "Scheme Manager",  union: "TUSAAG",  phone: "0302 000 000", email: "manager@htu.edu.gh",        password: "manager2026", role: "admin",   passwordChanged: true,  status: "Active", dept: "Administration Secretariat"    },
-      { id: "HTU/AUD-002", name: "System Auditor",  union: "TUSAAG",  phone: "0302 000 001", email: "auditor@htu.edu.gh",        password: "audit2026",   role: "auditor", passwordChanged: true,  status: "Active", dept: "Internal Audit Directorate"    },
-      { id: "HTU/0031",    name: "Kwame Asante",    union: "TUSAAG",  phone: "0244 789 012", email: "k.asante@htu.edu.gh",       password: "htu2026",     role: "staff",   passwordChanged: false, status: "New",    dept: "Business School"               },
-      { id: "HTU/0112",    name: "James Darko",     union: "TEWU",    phone: "0277 456 789", email: "j.darko@htu.edu.gh",        password: "htu2026",     role: "staff",   passwordChanged: false, status: "New",    dept: "Engineering"                   },
-      { id: "HTU/0087",    name: "Efua Forson",     union: "TUWAG",   phone: "0200 321 654", email: "e.forson@htu.edu.gh",       password: "htu2026",     role: "staff",   passwordChanged: false, status: "New",    dept: "Art & Design"                  },
-      { id: "HTU/0249",    name: "Daniel Agbozo",   union: "TEWU",    phone: "0244 654 321", email: "d.agbozo@htu.edu.gh",       password: "htu2026",     role: "staff",   passwordChanged: false, status: "New",    dept: "Engineering"                   },
+      { id: "HTU/0042",    name: "Staff Member",    union: "TUTAG",   phone: "0244 123 456", email: "staff@htu.edu.gh",           password: "htu2026",     role: "staff",   passwordChanged: false, status: "New",    dept: "Computer Science Department",   enrolledDate: "2019-10-12" },
+      { id: "HTU/ADM-001", name: "Scheme Manager",  union: "TUSAAG",  phone: "0302 000 000", email: "manager@htu.edu.gh",        password: "manager2026", role: "admin",   passwordChanged: true,  status: "Active", dept: "Administration Secretariat",     enrolledDate: "2018-01-15" },
+      { id: "HTU/AUD-002", name: "System Auditor",  union: "TUSAAG",  phone: "0302 000 001", email: "auditor@htu.edu.gh",        password: "audit2026",   role: "auditor", passwordChanged: true,  status: "Active", dept: "Internal Audit Directorate",     enrolledDate: "2021-11-01" },
+      { id: "HTU/0031",    name: "Kwame Asante",    union: "TUSAAG",  phone: "0244 789 012", email: "k.asante@htu.edu.gh",       password: "htu2026",     role: "staff",   passwordChanged: false, status: "New",    dept: "Business School",               enrolledDate: "2020-03-20" },
+      { id: "HTU/0112",    name: "James Darko",     union: "TEWU",    phone: "0277 456 789", email: "j.darko@htu.edu.gh",        password: "htu2026",     role: "staff",   passwordChanged: false, status: "New",    dept: "Engineering",                   enrolledDate: "2021-06-15" },
+      { id: "HTU/0087",    name: "Efua Forson",     union: "TUWAG",   phone: "0200 321 654", email: "e.forson@htu.edu.gh",       password: "htu2026",     role: "staff",   passwordChanged: false, status: "New",    dept: "Art & Design",                  enrolledDate: "2022-01-10" },
+      { id: "HTU/0249",    name: "Daniel Agbozo",   union: "TEWU",    phone: "0244 654 321", email: "d.agbozo@htu.edu.gh",       password: "htu2026",     role: "staff",   passwordChanged: false, status: "New",    dept: "Engineering",                   enrolledDate: "2023-09-05" },
     ];
 
     for (const s of seeds) {
       await query(
-        `INSERT INTO members (id, name, union_name, phone, email, password_hash, role, password_changed, paid_months, total_months, status, dept)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, 6, $9, $10)`,
-        [s.id, s.name, s.union, s.phone, s.email, hashPassword(s.password), s.role, s.passwordChanged, s.status, s.dept]
+        `INSERT INTO members (id, name, union_name, phone, email, password_hash, role, password_changed, paid_months, total_months, status, dept, enrolled_date)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, 6, $9, $10, $11)`,
+        [s.id, s.name, s.union, s.phone, s.email, hashPassword(s.password), s.role, s.passwordChanged, s.status, s.dept, s.enrolledDate]
       );
     }
 
@@ -257,6 +269,13 @@ async function runSetup() {
     await query(`
       INSERT INTO activities (title, amount, type, date_str) VALUES
       ('Database Seeder executed - Clean ledger initialized.', 'GH₵0', 'register', 'Just now');
+    `);
+
+    // 7. Seed default notices
+    await query(`
+      INSERT INTO notices (category, title, body) VALUES
+      ('Announcement', 'Annual Welfare Scheme General Meeting', 'All staff members are invited to our annual meeting on July 28, 2026 at the HTU Auditorium. Important dues restructuring discussions will take place.'),
+      ('Scheme Update', 'New Critical Illness Policy Allowances', 'The Welfare Board has approved an increase in the maximum claim limit for Critical Illness cover. You can read the updated scheme terms in the reports section.');
     `);
 
     return NextResponse.json({

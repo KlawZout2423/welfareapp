@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Mail, Lock, Eye, EyeOff, Info, AlertCircle, Loader2 } from "lucide-react";
+import { useWelfare } from "@/lib/context/WelfareContext";
 
 const HTULogo = ({ className = "w-20 h-20" }) => (
   <img
@@ -12,6 +13,7 @@ const HTULogo = ({ className = "w-20 h-20" }) => (
 );
 
 export default function LoginView({ onLogin }) {
+  const { showToastMsg } = useWelfare();
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
@@ -97,7 +99,7 @@ export default function LoginView({ onLogin }) {
                       <span className="text-[10px] font-bold text-navy uppercase block">Demo Credentials</span>
                       <div className="space-y-1.5 text-[11px]">
                         {[
-                          { role: "Staff Member", email: "staff@gmail.com", pw: "htu2026" },
+                          { role: "Staff Member", email: "staff@htu.edu.gh", pw: "htu2026" },
                           { role: "Scheme Manager", email: "manager@htu.edu.gh", pw: "manager2026" },
                           { role: "System Auditor", email: "auditor@htu.edu.gh", pw: "audit2026" },
                         ].map(c => (
@@ -112,12 +114,12 @@ export default function LoginView({ onLogin }) {
                   )}
                 </div>
               </div>
-              <div className="input-wrap">
+              <div className="input-wrap relative">
                 <Mail className="h-5 w-5" />
                 <input
                   type="text"
                   required
-                  placeholder="e.g. staff@gmail.com"
+                  placeholder="e.g. staff@htu.edu.gh"
                   value={loginEmail}
                   onChange={(e) => { setLoginEmail(e.target.value); setAuthError(""); }}
                   className="form-input"
@@ -132,7 +134,7 @@ export default function LoginView({ onLogin }) {
               <label className="block text-xs font-bold text-navy uppercase tracking-wider mb-2">
                 Portal Password
               </label>
-              <div className="input-wrap">
+              <div className="input-wrap relative">
                 <Lock className="h-5 w-5" />
                 <input
                   type={showPassword ? "text" : "password"}
@@ -148,6 +150,7 @@ export default function LoginView({ onLogin }) {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="eye-btn"
+                  style={{ position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", zIndex: 10, background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center" }}
                   disabled={isLoading}
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -162,7 +165,7 @@ export default function LoginView({ onLogin }) {
                 className="forgot-link text-sm"
                 onClick={(e) => {
                   e.preventDefault();
-                  alert("Contact the Welfare Secretariat to reset your password.\n📞 0302 000 000\n✉ welfare@htu.edu.gh");
+                  showToastMsg("Welfare Secretariat: 0302 000 000 | welfare@htu.edu.gh");
                 }}
               >
                 Forgot Password?

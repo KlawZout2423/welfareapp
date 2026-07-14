@@ -2,9 +2,10 @@
 
 import { Settings as SettingsIcon, LogOut, ShieldCheck } from "lucide-react";
 import { STAFF_NAV, ADMIN_NAV, AUDITOR_NAV } from "@/lib/navConfig";
+import Link from "next/link";
 
 const HTULogo = ({ className = "w-11 h-12" }) => (
-  <img src="/htu_logo.jpg" alt="Ho Technical University Logo"
+  <img src="/htu_logo.jpg" alt="Ho Technical University Crest Logo"
     className={`${className} object-contain rounded-full bg-white p-1 border border-slate-200/50`} />
 );
 
@@ -13,8 +14,7 @@ export default function Sidebar({
   setCurrentView, setIsMobileMenuOpen, isMobileMenuOpen,
   loans, claims, members, onLogout
 }) {
-  const navigate = (tab) => {
-    setActiveTab(tab);
+  const handleItemClick = () => {
     setIsMobileMenuOpen(false);
   };
 
@@ -65,9 +65,10 @@ export default function Sidebar({
           const badge = getBadge(item);
 
           return (
-            <button
+            <Link
               key={item.tab}
-              onClick={() => navigate(item.tab)}
+              href={item.tab === "dashboard" || item.tab === "overview" ? "/dashboard" : `/dashboard/${item.tab}`}
+              onClick={handleItemClick}
               className={`nav-item w-full ${activeTab === item.tab ? "active" : ""}`}
             >
               <Icon className="h-5 w-5" />
@@ -75,23 +76,34 @@ export default function Sidebar({
               {badge != null && (
                 <span className={`nav-badge ${item.badgeStyle || ""}`}>{badge}</span>
               )}
-            </button>
+            </Link>
           );
         })}
 
         {/* Settings — always last */}
-        <button
-          onClick={() => navigate("settings")}
+        <Link
+          href="/dashboard/settings"
+          onClick={handleItemClick}
           className={`nav-item w-full ${activeTab === "settings" ? "active" : ""}`}
         >
           <SettingsIcon className="h-5 w-5" />
           <span>{userRole === "staff" ? "My Settings" : "System Settings"}</span>
+        </Link>
+
+        {/* Logout item */}
+        <button
+          onClick={onLogout || (() => setCurrentView("login"))}
+          className="nav-item w-full text-left hover:text-red hover:bg-red-pale/25 transition-all duration-200"
+          style={{ cursor: "pointer", border: "none", background: "none" }}
+        >
+          <LogOut className="h-5 w-5" />
+          <span>Sign Out</span>
         </button>
       </div>
 
       {/* Footer: user card */}
       <div className="sidebar-footer">
-        <div className="user-card">
+        <Link href="/dashboard/settings" onClick={handleItemClick} className="user-card hover:bg-slate-100/50 transition-colors w-full">
           <div className="user-avatar">{userProfile.avatarInitials}</div>
           <div className="user-info">
             <div className="user-name truncate flex items-center gap-1">
@@ -102,10 +114,7 @@ export default function Sidebar({
             </div>
             <div className="user-role">{userProfile.roleLabel}</div>
           </div>
-          <button onClick={onLogout || (() => setCurrentView("login"))} className="logout-btn ml-2" title="Logout">
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
+        </Link>
       </div>
     </aside>
     </>

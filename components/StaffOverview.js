@@ -84,8 +84,60 @@ export default function StaffOverview({
   setShowClaimModal,
   setShowLoanModal,
   handleSettleInstallment,
-  setActiveTab
+  setActiveTab,
+  notices,
+  userRole
 }) {
+  // Download forms helper — generates a real text document
+  const downloadForms = () => {
+    const content = `HTU STAFF WELFARE SCHEME — FORMS BUNDLE
+========================================
+Generated: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}
+Member: ${userProfile.name} (${userProfile.id})
+
+─────────────────────────────────────────
+1. WELFARE CLAIM APPLICATION FORM
+─────────────────────────────────────────
+Full Name: ________________________________
+Staff ID:  ________________________________
+Union:     ________________________________
+Claim Type: [ ] Critical Illness  [ ] Bereavement  [ ] Retirement
+Amount Requested (GH₵): ___________________
+Description: ______________________________
+____________________________________________
+Supporting Documents Attached: [ ] Yes [ ] No
+Signature: _____________ Date: ____________
+
+─────────────────────────────────────────
+2. EMERGENCY LOAN APPLICATION FORM
+─────────────────────────────────────────
+Full Name: ________________________________
+Staff ID:  ________________________________
+Loan Amount (max GH₵1,500): _______________
+Repayment Term: [ ] 3 months [ ] 6 months
+Reason: ___________________________________
+____________________________________________
+Signature: _____________ Date: ____________
+
+─────────────────────────────────────────
+3. CONTACT INFORMATION
+─────────────────────────────────────────
+HTU Welfare Secretariat
+Phone: 0302 000 000
+Email: welfare@htu.edu.gh
+Office: Admin Block, Room 101
+
+© 2026 Ho Technical University Staff Welfare Scheme
+`;
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `HTU_Welfare_Forms_${new Date().toISOString().split("T")[0]}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const activeLoans = loans.filter(l => l.applicant === userProfile.name && l.status === "Active");
   const pendingClaims = (claims || []).filter(c => c.applicant === userProfile.name && c.status === "Pending");
   const paidMonths = personalContributions.length;
@@ -95,20 +147,53 @@ export default function StaffOverview({
 
   const paidSet = new Set(
     personalContributions.map(c => {
-      const raw = (c.month || "").slice(0, 3);
+      const raw = (c.month || "").split(" ")[0].toLowerCase().slice(0, 3);
       return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
     })
   );
   const TRACKED_MONTHS_FULL = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const TRACKED_MONTHS = TRACKED_MONTHS_FULL.slice(0, Math.min(Math.max(threshold, 1), 12));
-  const isConsecutivelyCompliant = TRACKED_MONTHS.every(m => paidSet.has(m));
+  
+  // Find indices of all paid months
+  const paidIndices = TRACKED_MONTHS_FULL
+    .map((m, idx) => paidSet.has(m) ? idx : -1)
+    .filter(idx => idx !== -1);
+
+  let hasSkippedMonths = false;
+  if (paidIndices.length > 0) {
+    const minIndex = Math.min(...paidIndices);
+    const maxIndex = Math.max(...paidIndices);
+    for (let i = minIndex; i <= maxIndex; i++) {
+      if (!paidSet.has(TRACKED_MONTHS_FULL[i])) {
+        hasSkippedMonths = true;
+        break;
+      }
+    }
+  }
+
+  const isConsecutivelyCompliant = paidMonths >= threshold && !hasSkippedMonths;
 
   // Last paid month
   const lastContrib = personalContributions[0];
   const lastPayment = lastContrib ? lastContrib.month : "—";
 
-  // Next due month (simple: current month label)
-  const nextDue = "July 2026";
+  // Dynamic next due month
+  const allRequiredMonths = [
+    { key: "jan", label: "January 2026", short: "Jan" },
+    { key: "feb", label: "February 2026", short: "Feb" },
+    { key: "mar", label: "March 2026", short: "Mar" },
+    { key: "apr", label: "April 2026", short: "Apr" },
+    { key: "may", label: "May 2026", short: "May" },
+    { key: "jun", label: "June 2026", short: "Jun" },
+    { key: "jul", label: "July 2026", short: "Jul" },
+    { key: "aug", label: "August 2026", short: "Aug" },
+    { key: "sep", label: "September 2026", short: "Sep" },
+    { key: "oct", label: "October 2026", short: "Oct" },
+    { key: "nov", label: "November 2026", short: "Nov" },
+    { key: "dec", label: "December 2026", short: "Dec" }
+  ].slice(0, Math.min(Math.max(threshold, 1), 12));
+
+  const unpaidMonthsList = allRequiredMonths.filter(m => !paidSet.has(m.short));
+  const nextDue = unpaidMonthsList.length > 0 ? unpaidMonthsList[0].label : "Up-to-Date";
 
   // Outstanding amount
   const outstanding = paidMonths < threshold
@@ -205,7 +290,7 @@ export default function StaffOverview({
               <DuesTracker personalContributions={personalContributions} threshold={threshold} />
               
               {/* Conditional Compliance Status Indicator */}
-              {!isConsecutivelyCompliant && paidMonths > 0 && (
+              {hasSkippedMonths && (
                 <div className="inline-flex items-center gap-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-bold px-2.5 py-1 rounded-lg tracking-wide uppercase animate-pulse">
                   <span>⚠️ Skipped months detected</span>
                 </div>
@@ -240,7 +325,13 @@ export default function StaffOverview({
           <div className={`stat-icon ${isConsecutivelyCompliant ? "green-bg" : "red-bg"}`}><CheckCircle className="w-5 h-5" /></div>
           <div className="stat-val">{isConsecutivelyCompliant ? "Compliant" : "Non-Compliant"}</div>
           <div className="stat-label-text">Membership Standing</div>
-          <span className="stat-change up">{isConsecutivelyCompliant ? "Eligible for benefits" : "Ineligible: Skipped dues"}</span>
+          <span className="stat-change up">
+            {isConsecutivelyCompliant
+              ? "Eligible for benefits"
+              : hasSkippedMonths
+              ? "Ineligible: Skipped dues"
+              : `Ineligible: Need ${threshold} payments (paid ${paidMonths})`}
+          </span>
         </div>
         <div className="stat-card gold">
           <div className="stat-icon gold-bg"><Landmark className="w-5 h-5" /></div>
@@ -265,6 +356,7 @@ export default function StaffOverview({
           const handleClick = () => {
             if (item.modal === "claim") setShowClaimModal(true);
             else if (item.modal === "loan") setShowLoanModal(true);
+            else if (item.handler === "downloadForms") downloadForms();
             else if (item.tab) setActiveTab?.(item.tab);
             else if (item.alert) alert(item.alert);
           };
@@ -304,6 +396,7 @@ export default function StaffOverview({
               if (svc.modal === "payment") setShowPaymentModal(true);
               else if (svc.modal === "claim") setShowClaimModal(true);
               else if (svc.modal === "loan") setShowLoanModal(true);
+              else if (svc.handler === "downloadForms") downloadForms();
               else if (svc.tab) setActiveTab?.(svc.tab);
               else if (svc.alert) alert(svc.alert);
             };
@@ -425,7 +518,7 @@ export default function StaffOverview({
       </div>
 
       {/* ── WELFARE NOTICEBOARD ─────────────────────────────────────────── */}
-      <WelfareNoticeboard />
+      <WelfareNoticeboard notices={notices} userRole={userRole} />
 
     </div>
   );

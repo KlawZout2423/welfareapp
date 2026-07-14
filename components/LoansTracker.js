@@ -1,11 +1,16 @@
 "use client";
 
-import { Plus, Landmark, Check, AlertCircle } from "lucide-react";
+import { Plus, Landmark, Check, AlertCircle, Search } from "lucide-react";
 
 export default function LoansTracker({
   userRole, userProfile, loans, fundStats,
-  setShowLoanModal, handleSettleInstallment, handleApproveLoan, handleRejectLoan
+  setShowLoanModal, handleSettleInstallment, handleApproveLoan, handleRejectLoan, searchQuery = ""
 }) {
+  const filteredLoans = loans.filter(l => {
+    const q = searchQuery.toLowerCase();
+    if (!q) return true;
+    return (l.applicant || "").toLowerCase().includes(q) || (l.id || "").toLowerCase().includes(q) || (l.reason || "").toLowerCase().includes(q);
+  });
   const myLoans = loans.filter(l => l.applicant === userProfile.name);
   const myActiveLoans = myLoans.filter(l => l.status === "Active");
   const isAuditor = userRole === "auditor";
@@ -76,7 +81,7 @@ export default function LoansTracker({
                     steps.push({ label: "Fully Settled", done: l.status === "Repaid", current: false });
                   }
                   return (
-                    <div key={lIdx} className="p-4 bg-cream/20 border border-border/30 rounded-xl space-y-4">
+                    <div key={lIdx} className="p-4 bg-slate-50 border border-slate-200/60 rounded-xl space-y-4">
                       <div className="flex justify-between items-center border-b border-border/20 pb-2">
                         <div>
                           <span className="text-xs font-bold text-navy">{l.id}</span>
@@ -162,54 +167,70 @@ export default function LoansTracker({
         </div>
         <div className="card-body">
           <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Loan ID</th>
-                  <th>Borrower</th>
-                  <th>Borrowed Amount</th>
-                  <th>Installment Rate</th>
-                  <th>Repaid / Loan Total</th>
-                  <th>Submitted</th>
-                  <th>Status</th>
-                  {(userRole === "admin" || isAuditor) && <th>Actions</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {loans
-                  .filter(l => userRole !== "staff" || l.applicant === userProfile.name)
-                  .map((l, idx) => (
-                    <tr key={idx}>
-                      <td className="font-bold text-text-3 text-xs">{l.id}</td>
-                      <td className="font-semibold">{l.applicant}</td>
-                      <td className="font-bold text-navy-deep">GH₵{l.amount}</td>
-                      <td className="font-bold text-text-3">GH₵{l.monthlyInstallment}/mo</td>
-                      <td className="font-medium text-text-2">GH₵{l.repaid} / GH₵{l.amount}</td>
-                      <td>{l.date}</td>
-                      <td>
-                        <span className={`badge ${l.status === "Active" ? "badge-green" : l.status === "Repaid" ? "badge-blue" : l.status === "Rejected" ? "badge-red" : "badge-gold"}`}>
-                          {l.status}
-                        </span>
-                      </td>
-                      {(userRole === "admin" || isAuditor) && (
-                        <td>
-                          {userRole === "admin" && l.status === "Pending" ? (
-                            <div style={{ display: "flex", gap: "6px" }}>
-                              <button onClick={() => handleApproveLoan(l.id)} className="btn btn-sm btn-gold" style={{ fontSize: "11px", padding: "5px 10px" }}>Approve</button>
-                              <button onClick={() => handleRejectLoan(l.id)} className="btn btn-sm"
-                                style={{ background: "var(--red-pale)", color: "var(--red)", border: "none", cursor: "pointer", borderRadius: "6px", padding: "5px 10px", fontSize: "11px", fontWeight: "600" }}>Reject</button>
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Loan ID</th>
+                    <th>Borrower</th>
+                    <th>Borrowed Amount</th>
+                    <th>Installment Rate</th>
+                    <th>Repaid / Loan Total</th>
+                    <th>Submitted</th>
+                    <th>Status</th>
+                    {(userRole === "admin" || isAuditor) && <th>Actions</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const displayedLoans = filteredLoans.filter(l => userRole !== "staff" || l.applicant === userProfile.name);
+                    if (displayedLoans.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={8} className="text-center py-12">
+                            <div className="flex flex-col items-center justify-center space-y-2 text-text-3">
+                              <Search className="w-8 h-8 opacity-40 text-gold" />
+                              <p className="font-bold text-sm text-navy-deep">No Loans Found</p>
+                              <p className="text-xs font-semibold">Try modifying your search query.</p>
                             </div>
-                          ) : (
-                            <span className="text-xs text-text-3 font-semibold">
-                              {isAuditor ? "Read-Only" : "Processed"}
-                            </span>
-                          )}
+                          </td>
+                        </tr>
+                      );
+                    }
+                    return displayedLoans.map((l, idx) => (
+                      <tr key={idx}>
+                        <td className="font-bold text-text-3 text-xs">{l.id}</td>
+                        <td className="font-semibold">{l.applicant}</td>
+                        <td className="font-bold text-navy-deep">GH₵{l.amount}</td>
+                        <td className="font-bold text-text-3">GH₵{l.monthlyInstallment}/mo</td>
+                        <td className="font-medium text-text-2">GH₵{l.repaid} / GH₵{l.amount}</td>
+                        <td>{l.date}</td>
+                        <td>
+                          <span className={`badge ${l.status === "Active" ? "badge-green" : l.status === "Repaid" ? "badge-blue" : l.status === "Rejected" ? "badge-red" : "badge-gold"}`}>
+                            {l.status}
+                          </span>
                         </td>
-                      )}
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
+                        {(userRole === "admin" || isAuditor) && (
+                          <td>
+                            {userRole === "admin" && l.status === "Pending" ? (
+                              <div style={{ display: "flex", gap: "6px" }}>
+                                <button onClick={() => handleApproveLoan(l.id)} className="btn btn-sm btn-gold" style={{ fontSize: "11px", padding: "5px 10px" }}>Approve</button>
+                                <button onClick={() => handleRejectLoan(l.id)} className="btn btn-sm"
+                                  style={{ background: "var(--red-pale)", color: "var(--red)", border: "none", cursor: "pointer", borderRadius: "6px", padding: "5px 10px", fontSize: "11px", fontWeight: "600" }}>Reject</button>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-text-3 font-semibold">
+                                {isAuditor ? "Read-Only" : "Processed"}
+                              </span>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    ));
+                  })()}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
