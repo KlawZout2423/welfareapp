@@ -318,6 +318,58 @@ export async function POST(request) {
       });
     }
 
+    // ── FORGOT PASSWORD (public — no auth required) ───────────────────────
+    if (action === "forgotPassword") {
+      const { email } = payload;
+      if (!email) {
+        return NextResponse.json({ success: false, error: "Email is required." }, { status: 400 });
+      }
+
+      // Enforce HTU email format
+      const resetEmail = email.trim().toLowerCase();
+      if (!resetEmail.endsWith("@htu.edu.gh")) {
+        return NextResponse.json({ success: false, error: "Email must be a valid Ho Technical University address (@htu.edu.gh)." }, { status: 400 });
+      }
+
+      const result = await query(
+        `SELECT id, name, email FROM members WHERE LOWER(email) = LOWER($1)`,
+        [resetEmail]
+      );
+
+      if (result.rows.length === 0) {
+        return NextResponse.json({ success: false, error: "No account found with that email address." }, { status: 404 });
+      }
+
+      const member = result.rows[0];
+
+      // Generate a temporary password (8 chars uppercase alphanumeric)
+      const tempPassword = "HTU-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+
+      // Hash the temporary password
+      const { randomBytes } = await import("crypto");
+      const salt = randomBytes(16).toString("hex");
+      const { pbkdf2Sync: hash } = await import("crypto");
+      const tempHash = `pbkdf2:${salt}:${hash(tempPassword, salt, 100_000, 64, "sha512").toString("hex")}`;
+
+      // Update password hash in database and set password_changed = false (forces them to reset it on first login)
+      await query(
+        `UPDATE members SET password_hash = $1, password_changed = FALSE WHERE id = $2`,
+        [tempHash, member.id]
+      );
+
+      // Log audit trail
+      await query(
+        `INSERT INTO audit_logs (timestamp_str, username, action, details, ip_address) VALUES ($1, $2, 'Password Reset', 'Temporary authorization key issued via portal', $3)`,
+        [timestamp, member.email, ip]
+      );
+
+      return NextResponse.json({
+        success: true,
+        tempPassword,
+        message: `Password reset successfully. A temporary password has been issued.`
+      });
+    }
+
     // ── LOGOUT (public — clears cookie) ───────────────────────────────────
     if (action === "logout") {
       await deleteSession();
