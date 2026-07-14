@@ -593,7 +593,16 @@ body {
 }
 @media (max-width: 640px) {
   .topbar { padding: 0 14px; gap: 8px; height: 60px; }
-  .topbar-title h1 { font-size: 17px; }
+  .topbar-title {
+    max-width: calc(100vw - 150px);
+    overflow: hidden;
+  }
+  .topbar-title h1 { 
+    font-size: 15px; 
+    white-space: nowrap; 
+    text-overflow: ellipsis; 
+    overflow: hidden; 
+  }
   .topbar-title p { display: none; }
 }
 .topbar-title {

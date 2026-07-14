@@ -135,12 +135,14 @@ export default function DashboardLayout({ children }) {
         </main>
 
         {/* FOOTER */}
-        <footer className="bg-white border-t border-border py-6 text-center space-y-2 mt-auto">
-          <div className="flex justify-center items-center gap-2 text-text-3 font-semibold">
-            <Heart className="h-4 w-4 text-red fill-red" />
-            <span>Ho Technical University Staff Welfare Scheme Board Office</span>
+        <footer className="bg-white border-t border-border py-6 text-center space-y-2 mt-auto px-4">
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-1.5 text-text-3 font-semibold text-xs">
+            <div className="flex items-center gap-1.5">
+              <Heart className="h-4 w-4 text-red fill-red shrink-0" />
+              <span>Ho Technical University Staff Welfare Scheme Board Office</span>
+            </div>
           </div>
-          <p className="text-[11px] text-text-3 font-bold">
+          <p className="text-[10px] text-text-3 font-bold leading-normal">
             &copy; 2026 HTU Staff Welfare Scheme. All rights reserved. Registered Administration System.
           </p>
         </footer>
