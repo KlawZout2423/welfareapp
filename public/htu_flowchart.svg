@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1150" width="100%" height="100%" style="background-color: #ffffff; font-family: 'DM Sans', system-ui, -apple-system, sans-serif;">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1a2744"/>
+      <stop offset="100%" stop-color="#2a3b63"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c9a227"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="greenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#064e3b"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="redGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7f1d1d"/>
+      <stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+    <!-- Arrow Marker -->
+    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#1a2744"/>
+    </marker>
+  </defs>
+
+  <!-- Title Header -->
+  <rect x="50" y="30" width="900" height="70" rx="12" fill="url(#headerGrad)" stroke="#c9a227" stroke-width="2"/>
+  <text x="500" y="65" text-anchor="middle" fill="#ffffff" font-size="22" font-weight="bold">HTU STAFF WELFARE SCHEME</text>
+  <text x="500" y="88" text-anchor="middle" fill="#c9a227" font-size="14" font-weight="600">SYSTEM PROCESS FLOWCHART</text>
+
+  <!-- Start Node -->
+  <rect x="375" y="130" width="250" height="45" rx="22" fill="url(#goldGrad)"/>
+  <text x="500" y="158" text-anchor="middle" fill="#ffffff" font-size="15" font-weight="bold">🚀 Start: User Login</text>
+
+  <line x1="500" y1="175" x2="500" y2="210" stroke="#1a2744" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- Role Verification Diamond -->
+  <polygon points="500,210 640,260 500,310 360,260" fill="#f8fafc" stroke="#1a2744" stroke-width="2"/>
+  <text x="500" y="255" text-anchor="middle" fill="#0f1829" font-size="14" font-weight="bold">Verify Role</text>
+  <text x="500" y="273" text-anchor="middle" fill="#d97706" font-size="11" font-weight="bold">Staff / Manager / Auditor</text>
+
+  <!-- Branch Lines -->
+  <!-- Left Branch: Staff -->
+  <line x1="360" y1="260" x2="200" y2="260" stroke="#1a2744" stroke-width="2"/>
+  <line x1="200" y1="260" x2="200" y2="340" stroke="#1a2744" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="270" y="250" fill="#0f1829" font-size="12" font-weight="bold">Role: Staff Member</text>
+
+  <!-- Right Branch: Admin Manager -->
+  <line x1="640" y1="260" x2="800" y2="260" stroke="#1a2744" stroke-width="2"/>
+  <line x1="800" y1="260" x2="800" y2="340" stroke="#1a2744" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="660" y="250" fill="#0f1829" font-size="12" font-weight="bold">Role: Manager / Secretariat</text>
+
+  <!-- Center Line: System Auditor -->
+  <line x1="500" y1="310" x2="500" y2="340" stroke="#1a2744" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="510" y="330" fill="#0f1829" font-size="12" font-weight="bold">Role: Auditor</text>
+
+  <!-- ==================== LEFT COLUMN: STAFF MEMBER FLOW ==================== -->
+  <rect x="80" y="340" width="240" height="50" rx="8" fill="url(#blueGrad)" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text x="200" y="370" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="bold">Select Action</text>
+
+  <line x1="200" y1="390" x2="200" y2="430" stroke="#1a2744" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Pay Dues Option -->
+  <rect x="80" y="430" width="240" height="55" rx="8" fill="#f8fafc" stroke="#1a2744" stroke-width="1.5"/>
+  <text x="200" y="453" text-anchor="middle" fill="#0f1829" font-size="13" font-weight="bold">1. Pay Monthly Dues</text>
+  <text x="200" y="472" text-anchor="middle" fill="#64748b" font-size="11">(Paystack Popup)</text>
+
+  <line x1="200" y1="485" x2="200" y2="525" stroke="#1a2744" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Paystack API Verify -->
+  <rect x="80" y="525" width="240" height="60" rx="8" fill="#f8fafc" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="200" y="550" text-anchor="middle" fill="#0f1829" font-size="13" font-weight="bold">Server Verify Paystack</text>
+  <text x="200" y="570" text-anchor="middle" fill="#2563eb" font-size="11" font-weight="bold">verifyPaystackPayment API</text>
+
+  <line x1="200" y1="585" x2="200" y2="625" stroke="#1a2744" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- DB Update Dues -->
+  <rect x="80" y="625" width="240" height="55" rx="8" fill="url(#greenGrad)" stroke="#059669" stroke-width="1.5"/>
+  <text x="200" y="650" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="bold">Update DB &amp; Ledger</text>
+  <text x="200" y="668" text-anchor="middle" fill="#ecfdf5" font-size="11">contributions + dues_ledger</text>
+
+  <!-- Submit Claim Option -->
+  <rect x="80" y="730" width="240" height="55" rx="8" fill="#f8fafc" stroke="#1a2744" stroke-width="1.5"/>
+  <text x="200" y="753" text-anchor="middle" fill="#0f1829" font-size="13" font-weight="bold">2. Submit Benefit Claim</text>
+  <text x="200" y="772" text-anchor="middle" fill="#64748b" font-size="11">(Medical, Bereavement, etc.)</text>
+
+  <line x1="200" y1="785" x2="200" y2="840" stroke="#1a2744" stroke-width="2"/>
+  <line x1="200" y1="840" x2="500" y2="840" stroke="#1a2744" stroke-width="2"/>
+
+  <!-- ==================== CENTER COLUMN: AUDITOR ==================== -->
+  <rect x="380" y="340" width="240" height="50" rx="8" fill="#f8fafc" stroke="#64748b" stroke-width="1.5"/>
+  <text x="500" y="363" text-anchor="middle" fill="#0f1829" font-size="13" font-weight="bold">Auditor View</text>
+  <text x="500" y="381" text-anchor="middle" fill="#64748b" font-size="11">Read-Only Ledgers &amp; Logs</text>
+
+  <!-- ==================== RIGHT COLUMN: MANAGER FLOW ==================== -->
+  <rect x="680" y="340" width="240" height="50" rx="8" fill="url(#blueGrad)" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text x="800" y="370" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="bold">Review Queue</text>
+
+  <line x1="800" y1="390" x2="800" y2="430" stroke="#1a2744" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Review Pending Claims -->
+  <rect x="680" y="430" width="240" height="55" rx="8" fill="#f8fafc" stroke="#1a2744" stroke-width="1.5"/>
+  <text x="800" y="453" text-anchor="middle" fill="#0f1829" font-size="13" font-weight="bold">Review Pending Claims</text>
+  <text x="800" y="472" text-anchor="middle" fill="#64748b" font-size="11">(Inspect Documents)</text>
+
+  <line x1="800" y1="485" x2="800" y2="525" stroke="#1a2744" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Decision Diamond -->
+  <polygon points="800,525 930,570 800,615 670,570" fill="#f8fafc" stroke="#1a2744" stroke-width="2"/>
+  <text x="800" y="565" text-anchor="middle" fill="#0f1829" font-size="13" font-weight="bold">Manager Decision</text>
+  <text x="800" y="583" text-anchor="middle" fill="#d97706" font-size="11" font-weight="bold">Approve / Reject</text>
+
+  <!-- Approve Branch (Left) -->
+  <line x1="670" y1="570" x2="570" y2="570" stroke="#059669" stroke-width="2"/>
+  <line x1="570" y1="570" x2="570" y2="640" stroke="#059669" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="610" y="560" fill="#059669" font-size="11" font-weight="bold">Approved</text>
+
+  <rect x="470" y="640" width="200" height="55" rx="8" fill="url(#greenGrad)" stroke="#059669" stroke-width="1.5"/>
+  <text x="570" y="663" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">Status = Approved</text>
+  <text x="570" y="681" text-anchor="middle" fill="#ecfdf5" font-size="11">Deduct Reserve Fund</text>
+
+  <!-- Reject Branch (Right) -->
+  <line x1="930" y1="570" x2="960" y2="570" stroke="#dc2626" stroke-width="2"/>
+  <line x1="960" y1="570" x2="960" y2="640" stroke="#dc2626" stroke-width="2"/>
+  <line x1="960" y1="640" x2="730" y2="640" stroke="#dc2626" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="935" y="560" fill="#dc2626" font-size="11" font-weight="bold">Rejected</text>
+
+  <rect x="730" y="640" width="200" height="55" rx="8" fill="url(#redGrad)" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="830" y="663" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">Status = Rejected</text>
+  <text x="830" y="681" text-anchor="middle" fill="#fef2f2" font-size="11">Record Rejection Note</text>
+
+  <!-- Join to In-App Notification Feed -->
+  <line x1="570" y1="695" x2="570" y2="760" stroke="#1a2744" stroke-width="2"/>
+  <line x1="830" y1="695" x2="830" y2="730" stroke="#1a2744" stroke-width="2"/>
+  <line x1="830" y1="730" x2="570" y2="730" stroke="#1a2744" stroke-width="2"/>
+
+  <!-- In-App Notification Feed -->
+  <line x1="500" y1="840" x2="500" y2="900" stroke="#1a2744" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="570" y1="760" x2="500" y2="760" stroke="#1a2744" stroke-width="2"/>
+  <line x1="500" y1="760" x2="500" y2="900" stroke="#1a2744" stroke-width="2"/>
+
+  <rect x="360" y="900" width="280" height="55" rx="8" fill="#f8fafc" stroke="#1a2744" stroke-width="1.5"/>
+  <text x="500" y="923" text-anchor="middle" fill="#0f1829" font-size="13" font-weight="bold">Trigger In-App Notification Feed</text>
+  <text x="500" y="942" text-anchor="middle" fill="#d97706" font-size="11" font-weight="bold">INSERT INTO notifications &amp; audit_logs</text>
+
+  <line x1="500" y1="955" x2="500" y2="1005" stroke="#1a2744" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- End Node -->
+  <rect x="400" y="1005" width="200" height="45" rx="22" fill="url(#goldGrad)"/>
+  <text x="500" y="1033" text-anchor="middle" fill="#ffffff" font-size="15" font-weight="bold">🏁 End: Process Complete</text>
+</svg>

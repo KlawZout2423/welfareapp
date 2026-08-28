@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# IDE / local scratch
+.agents/
+.gemini/
+check_claims.js
+test_login.ps1
+test_payload.json
+/htu_system_architecture.png
+
