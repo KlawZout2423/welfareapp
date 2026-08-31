@@ -17,7 +17,7 @@ function ClaimDocuments({ claimId }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "getClaimDocuments", payload: { claimId } })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       setDocs(data.documents || []);
       setOpen(true);
     } catch {

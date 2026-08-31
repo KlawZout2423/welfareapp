@@ -166,7 +166,7 @@ export function RegisterMemberModal({
           payload: { members: csvRows }
         })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setCsvError(data.error || "Bulk registration failed.");
         return;

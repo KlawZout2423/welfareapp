@@ -59,7 +59,7 @@ export default function LoginView({ onLogin }) {
           payload: { email: forgotEmail }
         })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setForgotError(data.error || "Password reset failed.");
       } else {

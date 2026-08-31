@@ -55,17 +55,29 @@ export async function POST(req) {
       }, { status: 400 });
     }
 
-    // 3. Dispatch SMS via Sailup API
+    // 3. Dispatch SMS via SailUp API directly
+    const sailupApiKey = process.env.SAILUP_API_KEY || 'sailup_v8xXqOHrgAEhUTVBkFXJ_9iTgtDDcGMWQKFl4v74mUQ';
     const defaultSender = process.env.SAILUP_DEFAULT_SENDER || 'HTUWELFARE';
     const senderName = sender || defaultSender;
 
     let smsResponse;
     try {
-      smsResponse = await sailup.sendSMS({
-        to: validNumbers,
-        body: messageText,
-        from: senderName
+      const sailupRes = await fetch('https://api.sailup.io/v1/sms/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sailupApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ from: senderName, to: validNumbers, body: messageText })
       });
+      if (!sailupRes.ok) {
+        const errData = await sailupRes.json().catch(() => ({}));
+        const err = new Error(errData?.detail || errData?.message || `SailUp error ${sailupRes.status}`);
+        err.status = sailupRes.status;
+        err.data = errData;
+        throw err;
+      }
+      smsResponse = await sailupRes.json();
     } catch (sailupErr) {
       console.error('SailUp Broadcast Dispatch Error:', sailupErr);
 

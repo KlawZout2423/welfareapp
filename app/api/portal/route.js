@@ -116,7 +116,7 @@ async function verifyPaystackPayment(reference, amount) {
     // Paystack amounts are in subunit (pesewas/kobo). Let's convert and check.
     const expectedAmountSubunit = Math.round(parseFloat(amount) * 100);
     if (Math.abs(paystackData.data.amount - expectedAmountSubunit) > 1) { // allow tiny rounding offset
-      return { success: false, error: `Amount mismatch. Expected: GH₵${amount}, Paystack: GH₵${(paystackData.data.amount/100).toFixed(2)}` };
+      return { success: false, error: `Amount mismatch. Expected: GH₵${amount}, Paystack: GH₵${(paystackData.data.amount / 100).toFixed(2)}` };
     }
     if (paystackData.data.currency !== "GHS") {
       return { success: false, error: `Currency mismatch. Expected: GHS, Paystack: ${paystackData.data.currency}` };
@@ -1243,7 +1243,7 @@ export async function POST(request) {
       }
 
       const { name, period, userProfileName } = payload;
-      
+
       await query("DELETE FROM reports WHERE period = $1", [period]);
 
       await query(
@@ -1349,7 +1349,7 @@ export async function POST(request) {
         return NextResponse.json({ success: false, error: "Only administrators can save settings." }, { status: 403 });
       }
       const { monthlyContribution, eligibilityThreshold, smsGateway, financialYear } = payload;
-      
+
       const checkConfig = await query("SELECT id FROM scheme_config LIMIT 1;");
       if (checkConfig.rows.length > 0) {
         await query(
@@ -1428,9 +1428,14 @@ export async function POST(request) {
       let rawPhoneList = [];
       let recipientLabel = recipientGroup || "All Members";
 
-      // 1. Single Specific Member
-      if (targetMemberId) {
-        const memRes = await query("SELECT phone, name FROM members WHERE id = $1", [targetMemberId]);
+      // 1. Custom Phone Numbers Input (Prioritized when Custom category selected)
+      if (customPhones && customPhones.trim() && recipientGroup && recipientGroup.toLowerCase().includes("custom")) {
+        rawPhoneList = customPhones.split(",").map(p => p.trim()).filter(Boolean);
+        recipientLabel = `Custom Numbers (${rawPhoneList.length})`;
+      }
+      // 2. Single Specific Member
+      else if (targetMemberId) {
+        const memRes = await query("SELECT phone, name FROM members WHERE LOWER(id) = LOWER($1)", [targetMemberId]);
         if (memRes.rows.length > 0) {
           rawPhoneList = [memRes.rows[0].phone];
           recipientLabel = `Direct: ${memRes.rows[0].name} (${targetMemberId})`;
@@ -1438,12 +1443,12 @@ export async function POST(request) {
           return NextResponse.json({ success: false, error: "Selected member not found." }, { status: 404 });
         }
       }
-      // 2. Custom Phone Numbers Input
+      // 3. Custom Phone Numbers Input Fallback (customPhones present but recipientGroup not labelled 'custom')
       else if (customPhones && customPhones.trim()) {
         rawPhoneList = customPhones.split(",").map(p => p.trim()).filter(Boolean);
         recipientLabel = `Custom Numbers (${rawPhoneList.length})`;
       }
-      // 3. Union Groups or Special Filters
+      // 4. Union Groups or Special Filters
       else if (recipientGroup && typeof recipientGroup === "string") {
         let groupLower = recipientGroup.toLowerCase();
         if (groupLower.includes("tutag")) {
@@ -1487,16 +1492,27 @@ export async function POST(request) {
         }, { status: 400 });
       }
 
-      const { sailup } = await import("@/lib/sailup");
-      const senderName = process.env.SAILUP_DEFAULT_SENDER || "HTUWELFARE";
+      const sailupApiKey = process.env.SAILUP_API_KEY || 'sailup_v8xXqOHrgAEhUTVBkFXJ_9iTgtDDcGMWQKFl4v74mUQ';
+      const senderName = process.env.SAILUP_DEFAULT_SENDER || 'HTUWELFARE';
 
       let smsResponse;
       try {
-        smsResponse = await sailup.sendSMS({
-          to: validNumbers,
-          body: messageText,
-          from: senderName
+        const sailupRes = await fetch('https://api.sailup.io/v1/sms/', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${sailupApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ from: senderName, to: validNumbers, body: messageText })
         });
+        if (!sailupRes.ok) {
+          const errData = await sailupRes.json().catch(() => ({}));
+          const err = new Error(errData?.detail || errData?.message || `SailUp error ${sailupRes.status}`);
+          err.status = sailupRes.status;
+          err.data = errData;
+          throw err;
+        }
+        smsResponse = await sailupRes.json();
       } catch (sailupErr) {
         console.error("SailUp SMS Dispatch Error:", sailupErr);
 
@@ -1537,7 +1553,7 @@ export async function POST(request) {
       );
 
       await query(
-        `INSERT INTO audit_logs (timestamp_str, username, action, details, ip_address) VALUES ($1, $2, 'SMS Dispatch', $3, $4)`,
+        `INSERT INTO audit_logs (timestamp_str, username, action, details, ip_address) VALUES ($1, $2, 'SMS', $3, $4)`,
         [timestamp, session.name, `Sent SMS to ${validNumbers.length} recipient(s) [${recipientLabel}]. ${invalidNumbers.length} invalid skipped.`, ip]
       );
 

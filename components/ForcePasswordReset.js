@@ -65,7 +65,7 @@ export default function ForcePasswordReset({ userEmail, currentPassword, onSucce
           payload: { email: userEmail, currentPassword, newPassword }
         })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) { setError(data.error || "Failed to update password."); return; }
       onSuccess();
     } catch {

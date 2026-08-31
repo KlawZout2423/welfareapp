@@ -399,7 +399,7 @@ export function SettingsPanel({ userRole, userProfile, schemeConfig, setSchemeCo
           }
         })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
         showToastMsg("Scheme configuration settings saved!");
       } else {
@@ -437,7 +437,7 @@ export function SettingsPanel({ userRole, userProfile, schemeConfig, setSchemeCo
           }
         })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
         setPwErrorMsg(data.error || "Failed to update password.");
       } else {
