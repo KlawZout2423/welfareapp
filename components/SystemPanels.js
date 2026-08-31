@@ -4,64 +4,254 @@ import { useState } from "react";
 import { Check, Info, ShieldCheck } from "lucide-react";
 
 // --- SMS Broadcast Panel ---
-export function SMSPanel({ userRole, smsData, setSmsData, smsHistory, handleSendSMS }) {
+export function SMSPanel({ userRole, members = [], smsData, setSmsData, smsHistory = [], handleSendSMS, isSubmittingSMS }) {
+  const [selectedHistory, setSelectedHistory] = useState(null);
+  const [targetType, setTargetType] = useState("all"); // "all", "single", "union", "defaulting", "custom"
+  const [selectedUnion, setSelectedUnion] = useState("TUTAG");
+
+  const totalCount = members.length;
+  const tutagCount = members.filter(m => (m.union || m.union_name) === "TUTAG").length;
+  const tusagCount = members.filter(m => (m.union || m.union_name) === "TUSAG").length;
+  const tewuCount = members.filter(m => (m.union || m.union_name) === "TEWU").length;
+  const gauaCount = members.filter(m => (m.union || m.union_name) === "GAUA").length;
+  const defaultingCount = members.filter(m => m.status === "Defaulting").length;
+
+  const handleTargetTypeChange = (type) => {
+    setTargetType(type);
+    if (type === "all") {
+      setSmsData({ ...smsData, recipients: "All Members", targetMemberId: "", customPhones: "" });
+    } else if (type === "defaulting") {
+      setSmsData({ ...smsData, recipients: "Defaulting Members", targetMemberId: "", customPhones: "" });
+    } else if (type === "union") {
+      setSmsData({ ...smsData, recipients: `${selectedUnion} Members`, targetMemberId: "", customPhones: "" });
+    } else if (type === "single") {
+      const firstMember = members[0];
+      setSmsData({ 
+        ...smsData, 
+        recipients: firstMember ? `Single Member: ${firstMember.name}` : "Single Member", 
+        targetMemberId: firstMember ? firstMember.id : "",
+        customPhones: "" 
+      });
+    } else if (type === "custom") {
+      setSmsData({ ...smsData, recipients: "Custom Phone Number(s)", targetMemberId: "", customPhones: "" });
+    }
+  };
+
+  const handleUnionChange = (u) => {
+    setSelectedUnion(u);
+    setSmsData({ ...smsData, recipients: `${u} Members` });
+  };
+
+  const handleSingleMemberChange = (memberId) => {
+    const m = members.find(mem => mem.id === memberId);
+    setSmsData({
+      ...smsData,
+      targetMemberId: memberId,
+      recipients: m ? `Single Member: ${m.name}` : "Single Member"
+    });
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="section-header">
         <div>
-          <h2>SMS Broadcast</h2>
-          <p>Send automated SMS messages to scheme members</p>
+          <h2>SMS Dispatch & Broadcast Gateway</h2>
+          <p>Send instant SMS messages to individual members, custom phone numbers, or target groups via SailUp API</p>
         </div>
       </div>
+
       <div className="two-col">
+        {/* Compose Form */}
         <div className="card">
-          <div className="card-header"><div className="card-title">Compose Message</div></div>
+          <div className="card-header">
+            <div className="card-title">Compose SMS Message</div>
+          </div>
           <form onSubmit={handleSendSMS} className="card-body space-y-4">
+            
+            {/* Target Category Selector */}
             <div className="form-field">
-              <label>Recipients</label>
-              <select value={smsData.recipients} onChange={(e) => setSmsData({ ...smsData, recipients: e.target.value })} disabled={userRole === "auditor"}>
-                <option>All Members (248)</option>
-                <option>TUTAG Members only</option>
-                <option>Defaulting Members (8)</option>
+              <label>Target Audience Category</label>
+              <select 
+                value={targetType}
+                onChange={(e) => handleTargetTypeChange(e.target.value)}
+                disabled={userRole === "auditor" || isSubmittingSMS}
+              >
+                <option value="all">📢 All Registered Members ({totalCount})</option>
+                <option value="single">👤 Single Specific Member</option>
+                <option value="union">🏛️ Specific Union Group (TUTAG, TUSAG...)</option>
+                <option value="defaulting">⚠️ Defaulting Members Only ({defaultingCount})</option>
+                <option value="custom">📱 Custom Phone Number(s)</option>
               </select>
             </div>
+
+            {/* Dynamic Sub-field based on Target Selection */}
+            {targetType === "single" && (
+              <div className="form-field" style={{ background: "var(--cream)", padding: "14px", borderRadius: "10px", border: "1px solid var(--border)" }}>
+                <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--navy)", textTransform: "uppercase" }}>Select Member Recipient</label>
+                <select
+                  value={smsData.targetMemberId || (members[0]?.id || "")}
+                  onChange={(e) => handleSingleMemberChange(e.target.value)}
+                  disabled={userRole === "auditor" || isSubmittingSMS}
+                >
+                  {members.map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} ({m.id}) — {m.phone || "No Phone"} ({m.union || m.union_name || 'Staff'})
+                    </option>
+                  ))}
+                </select>
+                {smsData.targetMemberId && (
+                  <div style={{ fontSize: "12px", color: "var(--green)", marginTop: "6px", fontWeight: "600" }}>
+                    ✓ Registered Phone: {members.find(m => m.id === smsData.targetMemberId)?.phone || "No phone on file"}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {targetType === "union" && (
+              <div className="form-field" style={{ background: "var(--cream)", padding: "14px", borderRadius: "10px", border: "1px solid var(--border)" }}>
+                <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--navy)", textTransform: "uppercase" }}>Select Staff Union</label>
+                <select
+                  value={selectedUnion}
+                  onChange={(e) => handleUnionChange(e.target.value)}
+                  disabled={userRole === "auditor" || isSubmittingSMS}
+                >
+                  <option value="TUTAG">TUTAG Members ({tutagCount})</option>
+                  <option value="TUSAG">TUSAG Members ({tusagCount})</option>
+                  <option value="TEWU">TEWU Members ({tewuCount})</option>
+                  <option value="GAUA">GAUA Members ({gauaCount})</option>
+                </select>
+              </div>
+            )}
+
+            {targetType === "custom" && (
+              <div className="form-field" style={{ background: "var(--cream)", padding: "14px", borderRadius: "10px", border: "1px solid var(--border)" }}>
+                <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--navy)", textTransform: "uppercase" }}>Enter Phone Number(s)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 0241234567 or 0201112222, 0553334444"
+                  value={smsData.customPhones || ""}
+                  onChange={(e) => setSmsData({ ...smsData, customPhones: e.target.value, recipients: `Custom: ${e.target.value}` })}
+                  disabled={userRole === "auditor" || isSubmittingSMS}
+                  required={targetType === "custom"}
+                />
+                <span style={{ fontSize: "11.5px", color: "var(--text-3)", display: "block", marginTop: "4px" }}>
+                  Separate multiple phone numbers with commas. Ghanaian local numbers (02X, 05X, 03X) are automatically formatted.
+                </span>
+              </div>
+            )}
+
             <div className="form-field">
-              <label>Message Type</label>
-              <select value={smsData.type} onChange={(e) => setSmsData({ ...smsData, type: e.target.value })} disabled={userRole === "auditor"}>
-                <option>Contribution Reminder</option>
-                <option>General Announcement</option>
-                <option>Defaulters Alert</option>
-                <option>Claim Status Update</option>
+              <label>Message Category / Title</label>
+              <select 
+                value={smsData.type} 
+                onChange={(e) => setSmsData({ ...smsData, type: e.target.value })} 
+                disabled={userRole === "auditor" || isSubmittingSMS}
+              >
+                <option value="Contribution Reminder">Contribution Reminder</option>
+                <option value="General Announcement">General Announcement</option>
+                <option value="Defaulters Alert">Defaulters Alert</option>
+                <option value="Claim Status Update">Claim Status Update</option>
+                <option value="Direct Notification">Direct Individual Message</option>
               </select>
             </div>
+
             <div className="form-field">
-              <label>Message Content</label>
-              <textarea rows="4" required placeholder="Type broadcast message..." value={smsData.message}
-                onChange={(e) => setSmsData({ ...smsData, message: e.target.value })} disabled={userRole === "auditor"} />
+              <label>SMS Message Content</label>
+              <textarea 
+                rows="4" 
+                required 
+                placeholder="Type SMS content here..." 
+                value={smsData.message}
+                onChange={(e) => setSmsData({ ...smsData, message: e.target.value })} 
+                disabled={userRole === "auditor" || isSubmittingSMS} 
+              />
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11.5px", color: "var(--text-3)", marginTop: "4px" }}>
+                <span>Characters: {smsData.message ? smsData.message.length : 0}</span>
+                <span>Est. SMS Parts: {Math.ceil((smsData.message ? smsData.message.length : 0) / 160) || 1}</span>
+              </div>
             </div>
+
             {userRole !== "auditor" && (
-              <button type="submit" className="btn btn-primary w-full justify-center">Send Broadcast</button>
+              <button 
+                type="submit" 
+                className="btn btn-primary w-full justify-center"
+                disabled={isSubmittingSMS}
+                style={{ marginTop: "8px" }}
+              >
+                {isSubmittingSMS ? "Dispatching via SailUp API..." : "Send SMS Message"}
+              </button>
             )}
           </form>
         </div>
 
+        {/* Broadcast History Card */}
         <div className="card">
-          <div className="card-header"><div className="card-title">Broadcast History</div></div>
+          <div className="card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="card-title">Broadcast History & Audit Log</div>
+            <span className="badge badge-blue">
+              {smsHistory.length} Logged
+            </span>
+          </div>
+
           <div className="card-body" style={{ padding: "0" }}>
-            {smsHistory.map((s, idx) => (
-              <div key={idx} className="activity-item">
-                <div className="activity-icon" style={{
-                  backgroundColor: s.status === "success" ? "var(--green-pale)" : "var(--gold-pale)",
-                  color: s.status === "success" ? "var(--green)" : "#8a6a00"
-                }}>
-                  {s.status === "success" ? <Check className="w-4 h-4" /> : <Info className="w-4 h-4" />}
+            {smsHistory.length === 0 ? (
+              <div style={{ padding: "24px", textAlign: "center", color: "var(--text-3)", fontSize: "13px" }}>No SMS messages sent yet.</div>
+            ) : (
+              smsHistory.map((s, idx) => (
+                <div 
+                  key={s.id || idx} 
+                  className="activity-item"
+                  style={{
+                    padding: "16px 20px",
+                    cursor: "pointer",
+                    transition: "background 0.2s",
+                    background: selectedHistory?.id === s.id ? "var(--cream)" : "transparent"
+                  }}
+                  onClick={() => setSelectedHistory(selectedHistory?.id === s.id ? null : s)}
+                >
+                  <div className="activity-icon" style={{
+                    backgroundColor: s.status === "failed" ? "var(--red-pale)" : "var(--green-pale)",
+                    color: s.status === "failed" ? "var(--red)" : "var(--green)"
+                  }}>
+                    {s.status === "failed" ? <Info className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                  </div>
+
+                  <div className="activity-body text-left" style={{ width: "100%" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div className="activity-title" style={{ fontWeight: "600", color: "var(--navy-deep)" }}>{s.title}</div>
+                      <span style={{ fontSize: "11px", color: "var(--text-3)" }}>{s.date || s.date_str}</span>
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px" }}>
+                      <span style={{ fontSize: "12px", color: "var(--text-2)" }}>{s.recipients}</span>
+                      <span className={`badge ${s.status === "failed" ? "badge-red" : "badge-green"}`}>
+                        {s.status === "failed" ? "Failed / Pending" : "Sent / Delivered"}
+                      </span>
+                    </div>
+
+                    {selectedHistory?.id === s.id && (
+                      <div style={{
+                        marginTop: "10px",
+                        padding: "12px",
+                        background: "var(--white)",
+                        borderRadius: "8px",
+                        border: "1px solid var(--border)",
+                        fontSize: "12px",
+                        color: "var(--text)"
+                      }}>
+                        <div style={{ fontWeight: "600", color: "var(--navy)", marginBottom: "4px" }}>Dispatch Audit Record:</div>
+                        <div><strong>Target:</strong> {s.recipients}</div>
+                        <div><strong>Timestamp:</strong> {s.date || s.date_str}</div>
+                        {s.message && <div style={{ marginTop: "4px" }}><strong>Message Body:</strong> "{s.message}"</div>}
+                        <div style={{ color: s.status === "failed" ? "var(--red)" : "var(--green)", fontWeight: "500", marginTop: "6px" }}>
+                          {s.status === "failed" ? "⚠ Dispatch failed or pending provider approval." : "✓ Dispatched via SailUp Gateway"}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="activity-body text-left">
-                  <div className="activity-title font-semibold">{s.title}</div>
-                  <div style={{ fontSize: "12px", color: "var(--text-3)" }}>{s.recipients} · {s.date}</div>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 export default function SMSPage() {
-  const { userRole, smsData, setSmsData, smsHistory, handleSendSMS } = useWelfare();
+  const { userRole, members, smsData, setSmsData, smsHistory, handleSendSMS, isSubmittingSMS } = useWelfare();
   const router = useRouter();
 
   useEffect(() => {
@@ -20,10 +20,12 @@ export default function SMSPage() {
   return (
     <SMSPanel
       userRole={userRole}
+      members={members}
       smsData={smsData}
       setSmsData={setSmsData}
       smsHistory={smsHistory}
       handleSendSMS={handleSendSMS}
+      isSubmittingSMS={isSubmittingSMS}
     />
   );
 }

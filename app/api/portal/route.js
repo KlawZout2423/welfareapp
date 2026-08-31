@@ -1412,6 +1412,143 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
+    // ── SEND SMS BROADCAST / DIRECT MESSAGE (admin only) ────────────────
+    if (action === "sendSMS") {
+      if (!requireRole(session, "admin")) {
+        return NextResponse.json({ success: false, error: "Only administrators can send SMS messages." }, { status: 403 });
+      }
+
+      const { recipients: recipientGroup, type: msgType, message: customMessage, targetMemberId, customPhones } = payload;
+      const messageText = (customMessage || "").trim();
+
+      if (!messageText) {
+        return NextResponse.json({ success: false, error: "SMS message content cannot be empty." }, { status: 400 });
+      }
+
+      let rawPhoneList = [];
+      let recipientLabel = recipientGroup || "All Members";
+
+      // 1. Single Specific Member
+      if (targetMemberId) {
+        const memRes = await query("SELECT phone, name FROM members WHERE id = $1", [targetMemberId]);
+        if (memRes.rows.length > 0) {
+          rawPhoneList = [memRes.rows[0].phone];
+          recipientLabel = `Direct: ${memRes.rows[0].name} (${targetMemberId})`;
+        } else {
+          return NextResponse.json({ success: false, error: "Selected member not found." }, { status: 404 });
+        }
+      }
+      // 2. Custom Phone Numbers Input
+      else if (customPhones && customPhones.trim()) {
+        rawPhoneList = customPhones.split(",").map(p => p.trim()).filter(Boolean);
+        recipientLabel = `Custom Numbers (${rawPhoneList.length})`;
+      }
+      // 3. Union Groups or Special Filters
+      else if (recipientGroup && typeof recipientGroup === "string") {
+        let groupLower = recipientGroup.toLowerCase();
+        if (groupLower.includes("tutag")) {
+          const dbRes = await query("SELECT phone FROM members WHERE union_name = 'TUTAG';");
+          rawPhoneList = dbRes.rows.map(m => m.phone).filter(Boolean);
+          recipientLabel = "TUTAG Members";
+        } else if (groupLower.includes("tusag")) {
+          const dbRes = await query("SELECT phone FROM members WHERE union_name = 'TUSAG';");
+          rawPhoneList = dbRes.rows.map(m => m.phone).filter(Boolean);
+          recipientLabel = "TUSAG Members";
+        } else if (groupLower.includes("tewu")) {
+          const dbRes = await query("SELECT phone FROM members WHERE union_name = 'TEWU';");
+          rawPhoneList = dbRes.rows.map(m => m.phone).filter(Boolean);
+          recipientLabel = "TEWU Members";
+        } else if (groupLower.includes("gaua")) {
+          const dbRes = await query("SELECT phone FROM members WHERE union_name = 'GAUA';");
+          rawPhoneList = dbRes.rows.map(m => m.phone).filter(Boolean);
+          recipientLabel = "GAUA Members";
+        } else if (groupLower.includes("defaulting")) {
+          const dbRes = await query("SELECT phone FROM members WHERE status = 'Defaulting';");
+          rawPhoneList = dbRes.rows.map(m => m.phone).filter(Boolean);
+          recipientLabel = "Defaulting Members";
+        } else {
+          const dbRes = await query("SELECT phone FROM members;");
+          rawPhoneList = dbRes.rows.map(m => m.phone).filter(Boolean);
+          recipientLabel = "All Members";
+        }
+      } else {
+        const dbRes = await query("SELECT phone FROM members;");
+        rawPhoneList = dbRes.rows.map(m => m.phone).filter(Boolean);
+        recipientLabel = "All Members";
+      }
+
+      const { processPhoneNumbers } = await import("@/lib/phone");
+      const { validNumbers, invalidNumbers } = processPhoneNumbers(rawPhoneList);
+
+      if (validNumbers.length === 0) {
+        return NextResponse.json({
+          success: false,
+          error: "No valid recipient phone numbers found in selected target audience."
+        }, { status: 400 });
+      }
+
+      const { sailup } = await import("@/lib/sailup");
+      const senderName = process.env.SAILUP_DEFAULT_SENDER || "HTUWelfare";
+
+      let smsResponse;
+      try {
+        smsResponse = await sailup.sendSMS({
+          to: validNumbers,
+          body: messageText,
+          from: senderName
+        });
+      } catch (sailupErr) {
+        console.error("SailUp SMS Dispatch Error:", sailupErr);
+
+        const now = new Date();
+        const dateStr = now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+        const broadcastTitle = msgType || (messageText.length > 40 ? `${messageText.substring(0, 37)}...` : messageText);
+
+        // Record failed attempt in sms_history table
+        await query(
+          `INSERT INTO sms_history (title, recipients, date_str, status) VALUES ($1, $2, $3, 'failed')`,
+          [broadcastTitle, `${validNumbers.length} Recipient(s) [${recipientLabel}]`, dateStr]
+        );
+
+        let userErrMsg = sailupErr.message || "Failed to dispatch SMS via SailUp Gateway.";
+        if (sailupErr.data?.error === "sender_not_approved") {
+          userErrMsg = `SailUp Status Notice: Your Sender ID '${senderName}' is currently PENDING approval by network providers on your SailUp account. Messages will begin delivering automatically as soon as SailUp approves '${senderName}'.`;
+        }
+
+        return NextResponse.json({
+          success: false,
+          error: userErrMsg,
+          sailupError: sailupErr.data || null
+        }, { status: 400 });
+      }
+
+      const now = new Date();
+      const dateStr = now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+      const broadcastTitle = msgType || (messageText.length > 40 ? `${messageText.substring(0, 37)}...` : messageText);
+
+      await query(
+        `INSERT INTO sms_history (title, recipients, date_str, status) VALUES ($1, $2, $3, 'success')`,
+        [broadcastTitle, `${validNumbers.length} Recipient(s) [${recipientLabel}]`, dateStr]
+      );
+
+      await query(
+        `INSERT INTO activities (title, amount, type, date_str) VALUES ($1, $2, 'register', 'Just now')`,
+        [`SMS Message sent — ${broadcastTitle}`, `${validNumbers.length} Sent`]
+      );
+
+      await query(
+        `INSERT INTO audit_logs (timestamp_str, username, action, details, ip_address) VALUES ($1, $2, 'SMS Dispatch', $3, $4)`,
+        [timestamp, session.name, `Sent SMS to ${validNumbers.length} recipient(s) [${recipientLabel}]. ${invalidNumbers.length} invalid skipped.`, ip]
+      );
+
+      return NextResponse.json({
+        success: true,
+        sentCount: validNumbers.length,
+        skippedCount: invalidNumbers.length,
+        message: `SMS dispatched successfully to ${validNumbers.length} recipient(s).${invalidNumbers.length > 0 ? ` (${invalidNumbers.length} invalid phone number(s) skipped)` : ''}`
+      });
+    }
+
     return NextResponse.json({ success: false, error: `Invalid action: ${action}` }, { status: 400 });
   } catch (err) {
     console.error("Portal POST Mutation Error:", err);
