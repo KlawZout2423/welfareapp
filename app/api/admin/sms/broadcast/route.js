@@ -56,7 +56,7 @@ export async function POST(req) {
     }
 
     // 3. Dispatch SMS via Sailup API
-    const defaultSender = process.env.SAILUP_DEFAULT_SENDER || 'HTUWelfare';
+    const defaultSender = process.env.SAILUP_DEFAULT_SENDER || 'HTUWELFARE';
     const senderName = sender || defaultSender;
 
     let smsResponse;

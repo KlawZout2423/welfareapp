@@ -1488,7 +1488,7 @@ export async function POST(request) {
       }
 
       const { sailup } = await import("@/lib/sailup");
-      const senderName = process.env.SAILUP_DEFAULT_SENDER || "HTUWelfare";
+      const senderName = process.env.SAILUP_DEFAULT_SENDER || "HTUWELFARE";
 
       let smsResponse;
       try {
