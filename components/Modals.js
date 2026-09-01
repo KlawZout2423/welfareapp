@@ -549,13 +549,13 @@ export function ContributeDuesModal({
                     onClick={() => onSubmitStaff(selectedMonth)}
                     className="w-full btn btn-primary py-3 flex justify-center items-center gap-2 text-white font-bold rounded-xl bg-navy-deep hover:bg-navy transition-all shadow-md"
                   >
-                    Authorize Paystack Payment
+                    Authorize Stripe Payment
                   </button>
                   
-                  {/* PAYSTACK SECURE BADGES */}
+                  {/* STRIPE SECURE BADGES */}
                   <div className="flex items-center justify-center gap-2 mt-3 text-[10px] text-text-3 font-semibold">
                     <span className="flex items-center gap-1">
-                      🔒 Secured by <strong>paystack</strong>
+                      🔒 Secured by <strong>stripe</strong>
                     </span>
                   </div>
                   

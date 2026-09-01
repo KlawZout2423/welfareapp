@@ -1,5 +1,4 @@
 import { EB_Garamond, DM_Sans } from "next/font/google";
-import Script from "next/script";
 import "./globals.css";
 
 const ebGaramond = EB_Garamond({
@@ -22,6 +21,7 @@ export const metadata = {
   },
 };
 
+import { Suspense } from "react";
 import { WelfareProvider } from "@/lib/context/WelfareContext";
 
 export default function RootLayout({ children }) {
@@ -31,10 +31,11 @@ export default function RootLayout({ children }) {
       className={`${ebGaramond.variable} ${dmSans.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-cream text-text flex flex-col">
-        <WelfareProvider>
-          {children}
-        </WelfareProvider>
-        <Script src="https://js.paystack.co/v2/inline.js" strategy="afterInteractive" />
+        <Suspense fallback={null}>
+          <WelfareProvider>
+            {children}
+          </WelfareProvider>
+        </Suspense>
       </body>
     </html>
   );
