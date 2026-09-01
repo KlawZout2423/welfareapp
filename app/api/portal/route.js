@@ -95,28 +95,35 @@ function getRequiredMonths(threshold) {
   return allMonths.slice(0, Math.min(Math.max(threshold, 1), 12));
 }
 
-import Stripe from 'stripe';
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_123');
-
-// ── Stripe Verification Helper ──────────────────────────────────────────────
-async function verifyStripePayment(sessionId, amount) {
-  if ((sessionId || "").startsWith("demo-") || (sessionId || "").startsWith("mock-")) {
+// ── Paystack Verification Helper ──────────────────────────────────────────────
+async function verifyPaystackPayment(reference, amount) {
+  if ((reference || "").startsWith("demo-") || (reference || "").startsWith("mock-")) {
     return { success: true };
   }
   try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-    if (session.payment_status !== 'paid') {
-      return { success: false, error: "Payment verification failed or not paid." };
+    const paystackRes = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+      headers: {
+        Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`
+      }
+    });
+    if (!paystackRes.ok) {
+      return { success: false, error: "Paystack API verification request failed." };
     }
-    
+    const paystackData = await paystackRes.json();
+    if (!paystackData.status || paystackData.data.status !== "success") {
+      return { success: false, error: paystackData.message || "Payment verification failed." };
+    }
+    // Paystack amounts are in subunit (pesewas/kobo). Let's convert and check.
     const expectedAmountSubunit = Math.round(parseFloat(amount) * 100);
-    if (Math.abs(session.amount_total - expectedAmountSubunit) > 1) { // allow tiny rounding offset
-      return { success: false, error: `Amount mismatch. Expected: GH₵${amount}, Stripe: GH₵${(session.amount_total / 100).toFixed(2)}` };
+    if (Math.abs(paystackData.data.amount - expectedAmountSubunit) > 1) { // allow tiny rounding offset
+      return { success: false, error: `Amount mismatch. Expected: GH₵${amount}, Paystack: GH₵${(paystackData.data.amount / 100).toFixed(2)}` };
     }
-    // allow GHS or USD depending on Stripe account
+    if (paystackData.data.currency !== "GHS") {
+      return { success: false, error: `Currency mismatch. Expected: GHS, Paystack: ${paystackData.data.currency}` };
+    }
     return { success: true };
   } catch (err) {
-    console.error("Stripe validation error:", err);
+    console.error("Paystack validation error:", err);
     return { success: false, error: "Payment verification failed due to a server connection error." };
   }
 }
@@ -726,40 +733,9 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
-    // ── CREATE STRIPE CHECKOUT SESSION ───────────────────────────
-    if (action === "createStripeCheckout") {
-      const { amount, type, metadata } = payload;
-      
-      const origin = request.headers.get("origin") || "http://localhost:3000";
-      
-      try {
-        const stripeSession = await stripe.checkout.sessions.create({
-          payment_method_types: ['card'],
-          line_items: [{
-            price_data: {
-              currency: 'ghs', // Make sure your Stripe account supports GHS or change to 'usd'
-              product_data: {
-                name: type === 'dues' ? 'Welfare Dues Payment' : 'Loan Installment Settlement',
-              },
-              unit_amount: Math.round(parseFloat(amount) * 100),
-            },
-            quantity: 1,
-          }],
-          mode: 'payment',
-          success_url: `${origin}/dashboard?payment_success=true&session_id={CHECKOUT_SESSION_ID}&type=${type}&metadata=${encodeURIComponent(JSON.stringify(metadata))}`,
-          cancel_url: `${origin}/dashboard?payment_canceled=true`,
-        });
-        
-        return NextResponse.json({ success: true, sessionId: stripeSession.id });
-      } catch (error) {
-        console.error("Stripe session creation error:", error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 400 });
-      }
-    }
-
-    // ── VERIFY DUES PAYMENT (via Stripe API) ───────────────────────────
+    // ── VERIFY DUES PAYMENT (via Paystack API) ───────────────────────────
     if (action === "verifyDuesPayment") {
-      const { sessionId, memberId, month, amount, memberName } = payload;
+      const { reference, memberId, month, amount, memberName } = payload;
 
       // Staff can only pay their own dues
       if (session.role === "staff" && memberId !== session.userId) {
@@ -783,8 +759,8 @@ export async function POST(request) {
         return NextResponse.json({ success: false, error: `Dues for ${month} have already been recorded as paid.` }, { status: 400 });
       }
 
-      // Verify the payment on Stripe
-      const verifyRes = await verifyStripePayment(sessionId, amount);
+      // Verify the payment on Paystack
+      const verifyRes = await verifyPaystackPayment(reference, amount);
       if (!verifyRes.success) {
         return NextResponse.json({ success: false, error: verifyRes.error }, { status: 400 });
       }
@@ -799,7 +775,7 @@ export async function POST(request) {
 
         await client.query(
           `INSERT INTO contributions (member_id, reference, month, date_paid, amount, status) VALUES ($1, $2, $3, $4, $5, 'success')`,
-          [memberId, sessionId, month, new Date().toISOString().split("T")[0], amtCheck.value]
+          [memberId, reference, month, new Date().toISOString().split("T")[0], amtCheck.value]
         );
 
         await client.query(
@@ -836,12 +812,12 @@ export async function POST(request) {
 
         await client.query(
           `INSERT INTO activities (title, amount, type, date_str) VALUES ($1, $2, 'in', 'Just now')`,
-          [`Stripe Dues paid — ${memberName}`, `GH₵${amount}`]
+          [`Paystack Dues paid — ${memberName}`, `GH₵${amount}`]
         );
 
         await client.query(
           `INSERT INTO audit_logs (timestamp_str, username, action, details, ip_address) VALUES ($1, $2, 'Payment', $3, $4)`,
-          [timestamp, session.name, `Stripe transaction ${sessionId} verified for ${memberName}`, ip]
+          [timestamp, session.name, `Paystack transaction ${reference} verified for ${memberName}`, ip]
         );
 
         await client.query("COMMIT");
@@ -1021,9 +997,9 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
-    // ── VERIFY LOAN PAYMENT (via Stripe API) ───────────────────────────
+    // ── VERIFY LOAN PAYMENT (via Paystack API) ───────────────────────────
     if (action === "verifyLoanPayment") {
-      const { sessionId, loanId, paymentAmount, userProfileName } = payload;
+      const { reference, loanId, paymentAmount, userProfileName } = payload;
 
       if (session.role === "auditor") {
         return NextResponse.json({ success: false, error: "Auditors cannot verify payments." }, { status: 403 });
@@ -1034,8 +1010,8 @@ export async function POST(request) {
         return NextResponse.json({ success: false, error: "Payment amount must be positive." }, { status: 400 });
       }
 
-      // Verify the payment on Stripe
-      const verifyRes = await verifyStripePayment(sessionId, parsedAmount);
+      // Verify the payment on Paystack
+      const verifyRes = await verifyPaystackPayment(reference, parsedAmount);
       if (!verifyRes.success) {
         return NextResponse.json({ success: false, error: verifyRes.error }, { status: 400 });
       }
@@ -1062,7 +1038,7 @@ export async function POST(request) {
 
       await query(
         `INSERT INTO audit_logs (timestamp_str, username, action, details, ip_address) VALUES ($1, $2, 'Loan Repayment', $3, $4)`,
-        [timestamp, session.name, `Stripe transaction ${sessionId} verified for loan installment of GH₵${parsedAmount} on ${loanId}`, ip]
+        [timestamp, session.name, `Paystack transaction ${reference} verified for loan installment of GH₵${parsedAmount} on ${loanId}`, ip]
       );
 
       return NextResponse.json({ success: true });
